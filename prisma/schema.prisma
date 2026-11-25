@@ -52,6 +52,9 @@ model User {
   courseLessonComments CourseLessonComment[]
   pulseLikes   PulseLike[]
   checkins     Checkin[]
+  projects     Project[]
+  projectLikes ProjectLike[]
+  projectReviews ProjectReview[]
 
   @@map("users")
 }
@@ -544,4 +547,133 @@ model Notification {
   @@index([recipientId, readAt])
   @@index([actorId])
   @@map("notifications")
+}
+
+enum ProjectStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  REJECTED
+  UNLISTED
+}
+
+/// 作品广场的作品内容、发布状态及版本。
+model Project {
+  id            String        @id @default(uuid()) @db.Uuid
+  authorId      String        @map("author_id") @db.Uuid
+  title         String        @db.VarChar(160)
+  summary       String        @db.VarChar(500)
+  bodyMarkdown  String        @map("body_markdown")
+  coverUrl      String?       @map("cover_url") @db.VarChar(2000)
+  projectUrl    String        @map("project_url") @db.VarChar(2000)
+  repositoryUrl String?       @map("repository_url") @db.VarChar(2000)
+  status        ProjectStatus @default(DRAFT)
+  version       Int           @default(1)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  submittedAt   DateTime?     @map("submitted_at") @db.Timestamptz(3)
+  publishedAt   DateTime?     @map("published_at") @db.Timestamptz(3)
+  author        User          @relation(fields: [authorId], references: [id])
+  categoryLinks ProjectCategoryLink[]
+  platformLinks ProjectPlatformLink[]
+  likes         ProjectLike[]
+  viewWindows   ProjectViewWindow[]
+  reviews       ProjectReview[]
+
+  @@index([status, publishedAt, id])
+  @@index([authorId, updatedAt])
+  @@index([status, submittedAt, id])
+  @@map("projects")
+}
+
+/// 作品分类目录及展示顺序。
+model ProjectCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique @db.VarChar(64)
+  name      String   @db.VarChar(60)
+  sortOrder Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  projects  ProjectCategoryLink[]
+
+  @@map("project_categories")
+}
+
+/// 作品运行平台目录及展示顺序。
+model ProjectPlatform {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique @db.VarChar(64)
+  name      String   @db.VarChar(60)
+  sortOrder Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  projects  ProjectPlatformLink[]
+
+  @@map("project_platforms")
+}
+
+/// 作品与分类的多对多关系。
+model ProjectCategoryLink {
+  projectId  String          @map("project_id") @db.Uuid
+  categoryId String          @map("category_id") @db.Uuid
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category   ProjectCategory @relation(fields: [categoryId], references: [id])
+
+  @@id([projectId, categoryId])
+  @@index([categoryId, projectId])
+  @@map("project_category_links")
+}
+
+/// 作品与运行平台的多对多关系。
+model ProjectPlatformLink {
+  projectId  String          @map("project_id") @db.Uuid
+  platformId String          @map("platform_id") @db.Uuid
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  platform   ProjectPlatform @relation(fields: [platformId], references: [id])
+
+  @@id([projectId, platformId])
+  @@index([platformId, projectId])
+  @@map("project_platform_links")
+}
+
+/// 用户对作品的点赞关系。
+model ProjectLike {
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId, createdAt, projectId])
+  @@map("project_likes")
+}
+
+/// 同一作品、访问者和统计窗口内只保留一条浏览记录。
+model ProjectViewWindow {
+  projectId   String   @map("project_id") @db.Uuid
+  viewerKey   String   @map("viewer_key") @db.VarChar(64)
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, viewerKey, windowStart])
+  @@index([windowStart])
+  @@map("project_view_windows")
+}
+
+/// 作品审核操作及状态变更日志。
+model ProjectReview {
+  id             String        @id @default(uuid()) @db.Uuid
+  projectId      String        @map("project_id") @db.Uuid
+  actorId        String        @map("actor_id") @db.Uuid
+  version        Int
+  action         String        @db.VarChar(32)
+  previousStatus ProjectStatus @map("previous_status")
+  nextStatus     ProjectStatus @map("next_status")
+  reason         String?       @db.VarChar(1000)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor          User          @relation(fields: [actorId], references: [id])
+
+  @@unique([projectId, version])
+  @@index([actorId, createdAt])
+  @@map("project_reviews")
 }
