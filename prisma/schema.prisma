@@ -30,6 +30,7 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
   sessions     Session[]
+  articles     Article[]
 
   @@map("users")
 }
@@ -46,4 +47,60 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  UNLISTED
+}
+
+enum ReviewStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Article {
+  id           String        @id @default(uuid()) @db.Uuid
+  authorId     String        @map("author_id") @db.Uuid
+  title        String        @db.VarChar(160)
+  bodyMarkdown String        @map("body_markdown")
+  summary      String?
+  status       ArticleStatus @default(DRAFT)
+  reviewStatus ReviewStatus  @default(NOT_SUBMITTED) @map("review_status")
+  version      Int           @default(1)
+  publishedAt  DateTime?     @map("published_at") @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  author       User          @relation(fields: [authorId], references: [id])
+  tags         ArticleTag[]
+
+  @@index([status, publishedAt, id])
+  @@index([authorId, status, updatedAt])
+  @@index([reviewStatus, updatedAt, id])
+  @@map("articles")
+}
+
+model Tag {
+  id        String       @id @default(uuid()) @db.Uuid
+  slug      String       @unique @db.VarChar(64)
+  name      String       @db.VarChar(60)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  articles  ArticleTag[]
+
+  @@map("tags")
+}
+
+model ArticleTag {
+  articleId String   @map("article_id") @db.Uuid
+  tagId     String   @map("tag_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id])
+
+  @@id([articleId, tagId])
+  @@index([tagId, articleId])
+  @@map("article_tags")
 }

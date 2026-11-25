@@ -5,3 +5,5 @@ M1 提供 React 注册登录、Fastify API、Prisma 和 PostgreSQL 用户与会�
 分别运行 npm run api 与 npm run dev，然后访问 http://127.0.0.1:5173/。通过本地环境配置启用 npm run db:seed，初始化管理员、作者和两个读者。密码由本地环境变量提供。
 
 集成测试要求独立 PostgreSQL 测试库，迁移后以 TEST_DATABASE_URL 指定。浏览器测试使用 Playwright Chromium，先运行 npx playwright install chromium，再运行 npm run test:browser:auth。
+
+M2 提供创作者草稿、标签、文章列表及详情。仅开发环境可用 ENABLE_DIRECT_PUBLISH=true 启用临时发布。

@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import { randomBytes } from 'node:crypto';
 import type { PrismaClient } from '../../generated/prisma/client';
+import { registerArticles } from './articles';
 import { ApiError, digest, hashPassword, verifyPassword, sessionAge, sessionName, security, userFields } from './security';
 
 const username = { type: 'string', pattern: '^[a-zA-Z0-9_]{3,32}$' };
@@ -21,7 +22,7 @@ const bodySchema = (properties: Record<string, unknown>) => ({
 });
 const isDuplicate = (error: unknown) => typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
 
-export async function buildApp(db: PrismaClient, options: { origins: string[]; secure?: boolean; logger?: boolean }) {
+export async function buildApp(db: PrismaClient, options: { origins: string[]; secure?: boolean; logger?: boolean; directPublish?: boolean }) {
   const app = Fastify({
     logger: options.logger ? { redact: ['req.headers.cookie', 'req.headers.authorization', 'req.headers.x-csrf-token', 'res.headers.set-cookie'] } : false,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },
@@ -112,6 +113,7 @@ export async function buildApp(db: PrismaClient, options: { origins: string[]; s
     auth.clearSession(reply);
     return reply.code(204).send();
   });
+  registerArticles(app, db, auth, protectedWrite, !!options.directPublish);
   app.get('/api/openapi.json', async () => app.swagger());
   return app;
 }

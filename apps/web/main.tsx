@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthPage, safeReturn } from './auth-page';
 import { SessionProvider, useSession } from './session';
 import { api } from './api';
+import { ArticlePage, Creator, Editor, Home } from './articles';
 import './styles.css';
 
 const client = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: false } } });
@@ -23,15 +24,12 @@ function Header({ location }: { location: Location }) {
   const authState = { background: location };
   return <header className="site-header"><div className="header-inner">
     <Link className="wordmark" to="/"><span className="brand-mark" aria-hidden="true">◇</span>码栈</Link>
-    <nav aria-label="主导航"><Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link></nav>
+    <nav aria-label="主导航"><Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link><Link to="/creator/articles" aria-current={location.pathname.startsWith('/creator')?'page':undefined}>创作者中心</Link></nav><form className="search" role="search" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);const word=String(form.get('q')||'').trim();navigate(word?'/?q='+encodeURIComponent(word):'/');}}><input key={location.search} aria-label="搜索文章" name="q" type="search" maxLength={100} placeholder="搜索文章" defaultValue={new URLSearchParams(location.search).get('q')||''}/><button className="subtle" type="submit">搜索</button></form>
     <div className="account">
       {loading ? <span role="status">加载中…</span> : error ? <button className="subtle" onClick={retry}>重试会话</button> : user ? <><span className="avatar" aria-hidden="true">{Array.from(user.displayName)[0]}</span><span className="nickname">{user.displayName}</span><button className="subtle" onClick={logout} disabled={busy}>退出</button></> : <><Link to={'/login' + authQuery} state={authState}>登录</Link><Link className="primary" to={'/register' + authQuery} state={authState}>注册</Link></>}
       {status && <span className="error" role="alert">{status}</span>}
     </div>
   </div></header>;
-}
-function Home() {
-  return <main className="home-grid"><aside className="surface filter"><h2>分类</h2><span>全部文章</span></aside><section className="surface feed"><h1>技术文章</h1><div className="empty"><p>暂无公开文章</p></div></section><aside className="surface side"><h2>社区活动</h2><p>暂无活动</p></aside></main>;
 }
 function WebRoutes() {
   const location = useLocation();
@@ -58,6 +56,10 @@ function WebRoutes() {
 
   return <><Header location={content}/><Routes location={content}>
     <Route path="/" element={<Home/>}/>
+    <Route path="/articles/:id" element={<ArticlePage/>}/>
+    <Route path="/creator/articles" element={<Creator/>}/>
+    <Route path="/creator/articles/new" element={<Editor/>}/>
+    <Route path="/creator/articles/:id/edit" element={<Editor/>}/>
     <Route path="*" element={<main className="surface missing"><h1>页面不存在</h1><Link to="/">返回文章首页</Link></main>}/>
   </Routes>
     {auth && <AuthPage key={location.pathname} signup={signup} dismiss={() => {
