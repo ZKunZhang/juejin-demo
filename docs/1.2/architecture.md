@@ -23,7 +23,7 @@
 
 根目录 README 记录 Node、PostgreSQL、迁移和浏览器验证命令。当前本地 PostgreSQL 可以由 `npm run db:local` 在 `55432` 启动，连接地址以 `.env` 的 `DATABASE_URL` 为准。构建产物包含前台和管理后台入口，部署时需为两者配置独立的历史路由回退和同源 `/api` 转发。
 
-旧 `server.mjs`、`schema.sql` 和 `seed.mjs` 属于 SQLite 原型。应用的当前数据迁移及生效约束以 PostgreSQL migration history 为准。
+当前应用使用 PostgreSQL。数据库迁移及生效约束见 [Prisma 迁移记录](../../prisma/migrations/)。
 
 ## 1.1 到 1.2
 
