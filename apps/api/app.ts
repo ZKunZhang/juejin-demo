@@ -6,6 +6,7 @@ import swagger from '@fastify/swagger';
 import { randomBytes } from 'node:crypto';
 import type { PrismaClient } from '../../generated/prisma/client';
 import { registerArticleViews } from './article-views';
+import { registerCreator } from './creator';
 import { registerCourses } from './courses';
 import { registerPulses } from './pulses';
 import { registerActivities } from './activities';
@@ -126,6 +127,7 @@ export async function buildApp(db: PrismaClient, options: { origins: string[]; s
   registerActivities(app, db, auth, protectedWrite);
   registerPulses(app, db, auth, protectedWrite);
   registerCourses(app, db);
+  registerCreator(app, db, auth);
   app.get('/api/openapi.json', async () => app.swagger());
   return app;
 }

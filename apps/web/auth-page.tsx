@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, createPath, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, HttpError, type User } from './api';
 import { useSession } from './session';
 
@@ -39,7 +39,7 @@ export function AuthPage({ signup = false, admin = false, dismiss }: {
       const user = await api<User>('/api/auth/' + (signup ? 'register' : 'login'), 'POST', signup ? { username, password, displayName } : { username, password });
       update(user);
       if (admin && user.role !== 'ADMIN') return setFormError('此账号没有后台访问权限');
-      if (dismiss) dismiss();
+      if (dismiss && location.state?.background && createPath(location.state.background) === target) dismiss();
       else navigate(target, { replace: true });
     } catch (error) {
       if (error instanceof HttpError && error.code === 'USERNAME_TAKEN') {

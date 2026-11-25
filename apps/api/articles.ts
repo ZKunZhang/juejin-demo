@@ -69,8 +69,13 @@ export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: R
     const related = await db.article.findMany({where:{status:'PUBLISHED',id:{not:row.id},tags:{some:{tagId:{in:row.tags.map(entry=>entry.tag.id)}}}},select:{id:true,title:true},orderBy:{publishedAt:'desc'},take:4});
     return {...row,related};
   });
-  app.get('/api/me/articles',{preHandler:auth.requireUser},async request=>db.article.findMany({
-    where:{authorId:request.actor!.id},select:{...articleSelect,status:true,reviewStatus:true,version:true},orderBy:{updatedAt:'desc'},take:100,
+  app.get<{Querystring:{status?:'draft'; page?:string}}>('/api/me/articles',{
+    preHandler:auth.requireUser,
+    schema:{querystring:object({status:{enum:['draft']},page:{type:'string',pattern:'^[1-9][0-9]{0,3}$'}},[])},
+  },async request=>db.article.findMany({
+    where:{authorId:request.actor!.id,...(request.query.status==='draft'?{status:'DRAFT',reviewStatus:{in:['NOT_SUBMITTED','REJECTED']}}:{})},
+    select:{...articleSelect,status:true,reviewStatus:true,version:true},orderBy:[{updatedAt:'desc'},{id:'desc'}],
+    skip:(Number(request.query.page||1)-1)*100,take:100,
   }));
   app.get<{Params:Identified}>('/api/me/articles/:id',{preHandler:auth.requireUser,schema:{params:idSchema}},async request=>{
     const row=await db.article.findFirst({where:{id:request.params.id,authorId:request.actor!.id},select:draftSelect});

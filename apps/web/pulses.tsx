@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
@@ -75,6 +75,9 @@ export function Pulses() {
   const tab:Tab=params.get('tab')==='latest'?'latest':params.get('tab')==='following'?'following':'recommended';
   const tag=params.get('tagId')||'';
   const login='/login?next='+encodeURIComponent(location.pathname+location.search);
+  useEffect(()=>{
+    if(location.hash==='#publish'&&user)document.getElementById('pulse-body')?.focus();
+  },[location.hash,user]);
   const [text,setText]=useState('');
   const [images,setImages]=useState('');
   const [selected,setSelected]=useState('');
@@ -94,7 +97,7 @@ export function Pulses() {
     try{
       await api('/api/pulses','POST',{body:text,images:images.split('\n').map(url=>url.trim()).filter(Boolean),...(selected?{tagId:selected}:{})});
       setText('');setImages('');setSelected('');setParams(new URLSearchParams({tab:'latest'}));
-      await Promise.all(['pulses','pulse-topics','pulse-leaderboard'].map(key=>client.invalidateQueries({queryKey:[key]})));
+      await Promise.all(['pulses','pulse-topics','pulse-leaderboard','creator-overview'].map(key=>client.invalidateQueries({queryKey:[key]})));
     }catch(error){setFailure(error instanceof Error?error.message:'发布失败');}
     finally{setPublishing(false);}
   }
@@ -103,7 +106,7 @@ export function Pulses() {
       <Link className="surface subtle pulse-leaderboard-link" to="/pulses/leaderboard">社区排行榜</Link>
     </aside>
     <div className="pulse-main">
-      <section className="surface pulse-compose"><h1>发布沸点</h1>
+      <section id="publish" className="surface pulse-compose"><h1>发布沸点</h1>
         {user?<form onSubmit={publish}>
           <label htmlFor="pulse-body">分享动态</label><textarea id="pulse-body" rows={3} maxLength={2000} value={text} onChange={event=>setText(event.target.value)}/>
           <label htmlFor="pulse-images">图片地址（每行一个，最多四张）</label><textarea id="pulse-images" rows={2} maxLength={8000} value={images} onChange={event=>setImages(event.target.value)} placeholder="https://"/>

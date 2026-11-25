@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, HttpError } from './api';
 import { useSession } from './session';
 import { Markdown, MarkdownWithToc } from './markdown';
 import { ArticleInteractions } from './interactions';
+import './creator.css';
 
 export type Tag = {id:string;name:string;slug:string};
 export type Article = {
@@ -86,15 +87,24 @@ export function ArticlePage() {
     </article>
   </main>}</ArticleInteractions>;
 }
-export const statusText=(row:Article)=>row.status==='PUBLISHED'?'已发布':row.status==='UNLISTED'?'已下架':row.reviewStatus==='PENDING'?'待审核':row.reviewStatus==='REJECTED'?'已驳回':'草稿';
+export const statusText=(row:Pick<Article,'status'|'reviewStatus'>)=>row.status==='PUBLISHED'?'已发布':row.status==='UNLISTED'?'已下架':row.reviewStatus==='PENDING'?'待审核':row.reviewStatus==='REJECTED'?'已驳回':'草稿';
 export function Creator() {
   const location = useLocation();
   const {user,loading,error,retry}=useSession();
-  const query=useQuery({queryKey:['creator',user?.id],enabled:!!user,queryFn:({signal})=>api<Article[]>('/api/me/articles','GET',undefined,signal)});
+  const [params]=useSearchParams();
+  const draftOnly=params.get('status')==='draft';
+  const pageValue=params.get('page')||'1';
+  const page=/^[1-9][0-9]{0,3}$/.test(pageValue)?Number(pageValue):1;
+  const filter=new URLSearchParams({page:String(page),...(draftOnly?{status:'draft'}:{})});
+  const pageLink=(number:number)=>'/creator/articles?'+new URLSearchParams({...Object.fromEntries(filter),page:String(number)});
+  const query=useQuery({queryKey:['creator',user?.id,draftOnly,page],enabled:!!user,queryFn:({signal})=>api<Article[]>('/api/me/articles?'+filter,'GET',undefined,signal)});
   if(loading||error)return <main className="surface work"><Pending error={error} retry={retry}/></main>;
   if(!user)return <main className="surface work"><Link to="/login?next=/creator/articles" state={{ background: location }}>登录创作者中心</Link></main>;
-  return <main className="surface work"><div className="work-title"><h1>我的文章</h1><Link className="primary" to="/creator/articles/new">写文章</Link></div>
-    {!query.data ? <Pending error={query.error} retry={()=>void query.refetch()}/> : query.data.length ? <ul className="work-list">{query.data.map(row=><li key={row.id}><Link to={'/creator/articles/'+row.id+'/edit'}>{row.title||'未命名文章'}</Link><span className="tag">{statusText(row)}</span></li>)}</ul> : <p className="work-message meta">暂无文章</p>}
+  const rows=query.data;
+  return <main className="surface work"><div className="work-title"><h1>{draftOnly?'草稿箱':'我的文章'}</h1><Link className="primary" to="/creator/articles/new">写文章</Link></div>
+    <nav className="creator-content-tabs" aria-label="文章列表筛选"><Link to="/creator">创作者首页</Link><Link to="/creator/articles">全部文章</Link><Link to="/creator/articles?status=draft">草稿箱</Link></nav>
+    {!query.data ? <Pending error={query.error} retry={()=>void query.refetch()}/> : rows?.length ? <ul className="work-list">{rows.map(row=><li key={row.id}><Link to={'/creator/articles/'+row.id+'/edit'}>{row.title||'未命名文章'}</Link><span className="tag">{statusText(row)}</span></li>)}</ul> : <p className="work-message meta">暂无文章</p>}
+    <div className="creator-content-tabs">{page>1&&<Link to={pageLink(page-1)}>上一页</Link>}{rows?.length===100&&page<9999&&<Link to={pageLink(page+1)}>下一页</Link>}</div>
   </main>;
 }
 export function Editor() {
@@ -117,7 +127,17 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
   const [status,setStatus]=useState('');
   const [failure,setFailure]=useState('');
   const [busy,setBusy]=useState(false);
-  const [preview,setPreview]=useState(false);
+  const [mode,setMode]=useState<'split'|'edit'|'preview'>('split');
+  const bodyField=useRef<HTMLTextAreaElement>(null);
+  function insert(before:string,after:string,sample:string) {
+    const input=bodyField.current;
+    if(!input)return;
+    const {selectionStart:start,selectionEnd:end}=input;
+    const value=body.slice(0,start)+before+(body.slice(start,end)||sample)+after+body.slice(end);
+    if(value.length>60000)return;
+    setBody(value);
+    requestAnimationFrame(()=>{input.focus();input.setSelectionRange(start+before.length,start+before.length+(end-start||sample.length));});
+  }
   const client=useQueryClient();
   const navigate=useNavigate();
   const readOnly=!!row&&(row.status!=='DRAFT'||row.reviewStatus==='PENDING');
@@ -131,12 +151,12 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
       let saved=row ? await api<Article>('/api/articles/'+row.id,'PATCH',{...values,version:row.version}) : await api<Article>('/api/articles','POST',values);
       setRow(saved);
       client.setQueryData(['draft',saved.id,saved.author.id],saved);
-      await client.invalidateQueries({queryKey:['creator']});
+      await Promise.all(['creator','creator-overview'].map(key=>client.invalidateQueries({queryKey:[key]})));
       if(action==='submit') {
         saved=await api<Article>('/api/articles/'+saved.id+'/submit','POST',{version:saved.version});
         setRow(saved);
         client.setQueryData(['draft',saved.id,saved.author.id],saved);
-        await client.invalidateQueries({queryKey:['creator']});
+        await Promise.all(['creator','creator-overview'].map(key=>client.invalidateQueries({queryKey:[key]})));
         setStatus('已提交审核');
         if(!article)navigate('/creator/articles/'+saved.id+'/edit',{replace:true});
       }else{setStatus('草稿已保存');if(!article)navigate('/creator/articles/'+saved.id+'/edit',{replace:true});}
@@ -149,22 +169,47 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
     try {
       const saved=await api<Article>('/api/articles/'+row.id+'/return-to-draft','POST',{version:row.version});
       setRow(saved);client.setQueryData(['draft',saved.id,saved.author.id],saved);
-      await client.invalidateQueries({queryKey:['creator']});
+      await Promise.all(['creator','creator-overview'].map(key=>client.invalidateQueries({queryKey:[key]})));
     } catch(error) { setFailure(error instanceof Error?error.message:'操作失败'); }
     finally {setBusy(false);}
   }
-  return <main className="surface work editor"><div className="work-title"><h1>{row?'编辑文章':'写文章'}</h1><Link to="/creator/articles">我的文章</Link></div>
-    {row&&<p className="meta">{statusText(row)} · 版本 {row.version}</p>}
-    {row?.reason&&(row.reviewStatus==='REJECTED'||row.status==='UNLISTED')&&<p className="error">处理原因：{row.reason}</p>}
-    {row?.status==='UNLISTED'&&<button className="subtle" onClick={returnToDraft} disabled={busy}>转回草稿</button>}
+  const tools=[
+    ['插入小节','H','## ','','小节标题'],
+    ['粗体','B','**','**','粗体'],
+    ['斜体','I','*','*','斜体'],
+    ['引用','❝','> ','','引用文字'],
+    ['链接','链接','[','](https://example.com)','链接文字'],
+    ['图片','图片','![','](https://example.com/image.png)','图片说明'],
+    ['代码块','代码','\n```\n','\n```\n','代码'],
+    ['列表','列表','- ','','列表项'],
+  ] as const;
+  return <main className="surface editor creator-editor">
     <form onSubmit={save}>
-      <label htmlFor="title">标题</label><input id="title" maxLength={160} value={title} disabled={busy||readOnly} onChange={event=>setTitle(event.target.value)}/>
-      <label htmlFor="summary">摘要</label><input id="summary" maxLength={500} value={summary} disabled={busy||readOnly} onChange={event=>setSummary(event.target.value)}/>
-      <fieldset disabled={busy||readOnly}><legend>标签</legend><div className="tag-options">{tags.map(tag=><label key={tag.id}><input type="checkbox" checked={tagIds.includes(tag.id)} onChange={event=>setTagIds(event.target.checked?[...tagIds,tag.id]:tagIds.filter(id=>id!==tag.id))}/>{tag.name}</label>)}</div></fieldset>
-      <div className="work-title"><label htmlFor="body">Markdown 正文</label><button type="button" className="subtle" aria-pressed={preview} onClick={()=>setPreview(!preview)}>{preview?'返回编辑':'预览'}</button></div>
-      {preview?<div className="preview"><Markdown source={body}/></div>:<textarea id="body" rows={16} maxLength={60000} value={body} disabled={busy||readOnly} onChange={event=>setBody(event.target.value)}/>}
-      {failure&&<p className="error" role="alert">{failure}</p>}{status&&<p role="status">{status}</p>}
-      {!readOnly&&<div className="editor-actions"><button type="submit" className="subtle" disabled={busy}>保存草稿</button><button type="submit" value="submit" className="primary" disabled={busy||!title.trim()||!body.trim()}>提交审核</button></div>}
+      <div className="creator-editor-header">
+        <div><Link to="/creator">创作者中心</Link><h1>{row?'编辑文章':'写文章'}</h1></div>
+        <label className="creator-editor-title"><span>标题</span><input id="title" maxLength={160} placeholder="输入文章标题…" value={title} disabled={busy||readOnly} onChange={event=>setTitle(event.target.value)}/></label>
+        <div className="creator-editor-actions"><Link className="subtle" to="/creator/articles?status=draft">草稿箱</Link>
+          {!readOnly&&<><button type="submit" className="subtle" disabled={busy}>保存草稿</button><button type="submit" value="submit" className="primary" disabled={busy||!title.trim()||!body.trim()}>提交审核</button></>}
+          {row?.status==='UNLISTED'&&<button type="button" className="subtle" onClick={returnToDraft} disabled={busy}>转回草稿</button>}
+        </div>
+      </div>
+      <div className="creator-editor-toolbar">
+        <div role="group" aria-label="Markdown 格式">{tools.map(([label,icon,before,after,sample])=><button key={label} type="button" className="subtle" title={label} aria-label={label} disabled={busy||readOnly||mode==='preview'} onClick={()=>insert(before,after,sample)}>{icon}</button>)}</div>
+        <div className="editor-modes" role="group" aria-label="编辑视图">
+          <button type="button" className="subtle editor-split-toggle" aria-pressed={mode==='split'} onClick={()=>setMode('split')}>双栏</button><button type="button" className="subtle" aria-pressed={mode==='edit'} onClick={()=>setMode('edit')}>编辑</button><button type="button" className="subtle" aria-pressed={mode==='preview'} onClick={()=>setMode('preview')}>预览</button>
+        </div>
+      </div>
+      <div className={'creator-panes mode-'+mode}>
+        <section className="creator-input-pane"><label htmlFor="body">Markdown 正文</label><textarea ref={bodyField} id="body" rows={16} maxLength={60000} value={body} readOnly={busy||readOnly} onChange={event=>setBody(event.target.value)} placeholder="从这里开始写作…"/></section>
+        <section className="creator-preview-pane" aria-label="文章预览"><h2>预览</h2>{body?<Markdown source={body}/>:<p className="meta">输入正文后在这里预览</p>}</section>
+      </div>
+      <div className="creator-editor-footer"><span>字符数 {body.length.toLocaleString('zh-CN')}</span><span>行数 {body.split('\n').length}</span>{row&&<span>{statusText(row)} · 版本 {row.version}</span>}</div>
+      {row?.reason&&(row.reviewStatus==='REJECTED'||row.status==='UNLISTED')&&<p className="error creator-editor-message">处理原因：{row.reason}</p>}
+      {failure&&<p className="error creator-editor-message" role="alert">{failure}</p>}{status&&<p className="creator-editor-message" role="status">{status}</p>}
+      <section className="creator-editor-settings" aria-labelledby="creator-publish-settings"><h2 id="creator-publish-settings">发布设置</h2>
+        <label htmlFor="summary">摘要</label><input id="summary" maxLength={500} value={summary} disabled={busy||readOnly} onChange={event=>setSummary(event.target.value)}/>
+        <fieldset disabled={busy||readOnly}><legend>标签</legend><div className="tag-options">{tags.map(tag=><label key={tag.id}><input type="checkbox" checked={tagIds.includes(tag.id)} disabled={tagIds.length>=10&&!tagIds.includes(tag.id)} onChange={event=>setTagIds(event.target.checked?[...tagIds,tag.id]:tagIds.filter(id=>id!==tag.id))}/>{tag.name}</label>)}</div></fieldset>
+      </section>
     </form>
   </main>;
 }
