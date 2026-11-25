@@ -43,6 +43,7 @@ test('pulse publish, image validation, tag, followed feed, like and day check-in
     const like=()=>app.inject({method:'PUT',url:'/api/pulses/'+id+'/like',headers:reader.headers,payload:{active:true}});
     expect((await Promise.all([like(),like()])).map(item=>item.statusCode)).toEqual([200,200]);
     expect(await db.pulseLike.count({where:{pulseId:id}})).toBe(1);
+    expect((await app.inject('/api/pulses/leaderboard')).json()).toContainEqual({id:author.id,displayName:'author',likes:1,pulses:1});
     const check=()=>app.inject({method:'POST',url:'/api/me/checkin',headers:reader.headers});
     expect((await Promise.all([check(),check()])).map(item=>item.json())).toEqual([{checked:true},{checked:true}]);
     expect(await db.checkin.count({where:{userId:reader.id}})).toBe(1);

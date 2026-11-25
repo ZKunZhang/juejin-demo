@@ -21,6 +21,16 @@ function imageUrl(value:string) {
 }
 export function registerPulses(app:FastifyInstance,db:PrismaClient,auth:ReturnType<typeof security>,protectedWrite:preHandlerHookHandler[]) {
   const write=[...protectedWrite,auth.requireUser];
+  app.get('/api/pulses/leaderboard',async()=>db.$queryRaw<Array<{id:string;displayName:string;likes:number;pulses:number}>>`
+    SELECT u.id, u.display_name AS "displayName",
+           count(pl.user_id)::integer AS likes, count(DISTINCT p.id)::integer AS pulses
+    FROM pulses p
+    JOIN users u ON u.id=p.author_id AND u.status='ACTIVE'
+    LEFT JOIN pulse_likes pl ON pl.pulse_id=p.id
+    GROUP BY u.id
+    ORDER BY likes DESC, pulses DESC, u.id ASC
+    LIMIT 5
+  `);
   app.get('/api/pulses/topics',async()=>db.tag.findMany({
     where:{scope:{not:'ARTICLE'}},select:{id:true,name:true,slug:true,_count:{select:{pulses:true}}},
     orderBy:[{scope:'desc'},{createdAt:'asc'},{id:'asc'}],
