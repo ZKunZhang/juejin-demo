@@ -4,7 +4,7 @@ import { ApiError, security } from './security';
 import { conflict, missing, object, uuid, versionSchema } from './articles';
 
 type ActivityInput={
-  title:string; summary:string; url:string|null; status:'DRAFT'|'PUBLISHED'|'UNLISTED';
+  title:string; summary:string; url:string|null; coverUrl?:string|null; status:'DRAFT'|'PUBLISHED'|'UNLISTED';
   sortOrder:number; visibleFrom:string|null; visibleTo:string|null;
 };
 const params=object({id:uuid});
@@ -13,13 +13,16 @@ const input={
   title:{type:'string',minLength:1,maxLength:120,pattern:'\\S'},
   summary:{type:'string',minLength:1,maxLength:300,pattern:'\\S'},
   url:nullable({type:'string',maxLength:1000}),
+  coverUrl:nullable({type:'string',maxLength:2000}),
   status:{enum:['DRAFT','PUBLISHED','UNLISTED']},
   sortOrder:{type:'integer',minimum:0,maximum:9999},
   visibleFrom:nullable({type:'string',format:'date-time'}),
   visibleTo:nullable({type:'string',format:'date-time'}),
 };
-const safeFields={id:true,title:true,summary:true,url:true} as const;
+const safeFields={id:true,title:true,summary:true,url:true,coverUrl:true} as const;
 const adminFields={...safeFields,status:true,sortOrder:true,visibleFrom:true,visibleTo:true,version:true,updatedAt:true} as const;
+
+const requiredFields=Object.keys(input).filter(field=>field!=='coverUrl');
 
 function normalize(input:ActivityInput) {
   const from=input.visibleFrom ? new Date(input.visibleFrom) : null;
@@ -33,7 +36,18 @@ function normalize(input:ActivityInput) {
       url=target.href;
     } catch {throw new ApiError(400,'INVALID_ACTIVITY_URL','请输入有效的 HTTP 或 HTTPS 地址');}
   }
-  return {title:input.title.trim(),summary:input.summary.trim(),url,status:input.status,sortOrder:input.sortOrder,visibleFrom:from,visibleTo:to};
+  let coverUrl: string | null | undefined = input.coverUrl;
+  if (coverUrl !== undefined) {
+    coverUrl = coverUrl?.trim() || null;
+    if (coverUrl) {
+      try {
+        const image = new URL(coverUrl);
+        if (image.protocol !== 'https:' || image.username || image.password) throw new Error();
+        coverUrl = image.href;
+      } catch { throw new ApiError(400,'INVALID_ACTIVITY_COVER','请输入有效的 HTTPS 图片地址'); }
+    }
+  }
+  return {coverUrl,title:input.title.trim(),summary:input.summary.trim(),url,status:input.status,sortOrder:input.sortOrder,visibleFrom:from,visibleTo:to};
 }
 
 export function registerActivities(app:FastifyInstance,db:PrismaClient,auth:ReturnType<typeof security>,write:preHandlerHookHandler[]) {
@@ -58,12 +72,12 @@ export function registerActivities(app:FastifyInstance,db:PrismaClient,auth:Retu
     if(!row)throw missing();
     return row;
   });
-  app.post<{Body:ActivityInput}>('/api/admin/activities',{preHandler:admin,schema:{body:object(input)}},async(request,reply)=>{
+  app.post<{Body:ActivityInput}>('/api/admin/activities',{preHandler:admin,schema:{body:object(input,requiredFields)}},async(request,reply)=>{
     const item=await db.activity.create({data:{...normalize(request.body),editorId:request.actor!.id},select:adminFields});
     return reply.code(201).send(item);
   });
   app.patch<{Params:{id:string};Body:ActivityInput&{version:number}}>('/api/admin/activities/:id',{
-    preHandler:admin,schema:{params,body:object({...input,version:versionSchema})},
+    preHandler:admin,schema:{params,body:object({...input,version:versionSchema},[...requiredFields,'version'])},
   },request=>db.$transaction(async tx=>{
     const {id}=request.params;
     const result=await tx.activity.updateMany({where:{id,version:request.body.version},data:{

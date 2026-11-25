@@ -104,3 +104,5 @@
 - [x] M5-02 真实 PostgreSQL 接口测试通过。
 - [x] M5-03 真实 PostgreSQL 接口测试通过。
 - [x] M5-04 真实 PostgreSQL 接口测试通过。
+
+- [x] M5-05 活动封面接受 HTTPS URL，拒绝 HTTP URL。已发布演示图由 Playwright 验证在首页加载。

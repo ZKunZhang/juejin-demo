@@ -89,6 +89,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <tr><td><code>editor_id</code></td><td><code>uuid</code></td><td>引用 <code>users.id</code>，记录最后配置人。API 要求当前用户角色为 ADMIN。</td></tr>
 <tr><td><code>title / summary</code></td><td><code>varchar(120) / varchar(300)</code></td><td>标题和摘要均必填，去除首尾空白。</td></tr>
 <tr><td><code>url</code></td><td><code>text?</code></td><td>可选活动地址，允许 HTTP 或 HTTPS。</td></tr>
+<tr><td><code>cover_url</code></td><td><code>text?</code></td><td>可选 HTTPS 封面，迁移 <code>202611250007_activity_cover</code> 添加。</td></tr>
 <tr><td><code>status</code></td><td><code>ActivityStatus</code></td><td><code>DRAFT / PUBLISHED / UNLISTED</code>，默认 DRAFT。</td></tr>
 <tr><td><code>sort_order</code></td><td><code>integer</code></td><td>0 到 9999，默认 0。数值小的优先，同序按 ID。</td></tr>
 <tr><td><code>visible_from / visible_to</code></td><td><code>timestamptz?</code></td><td>后台输入本地时间，存储时间点。区间左闭右开，空值代表该端无界。两端均有值时结束须晚于开始。</td></tr>
@@ -97,7 +98,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 </tbody></table></div>
 <ul>
 <li>索引为 <code>activities(status, sort_order, id)</code>。迁移 <code>202611250005_activities</code> 添加字段、外键及展示时间、顺序、内容检查约束。</li>
-<li>公开 <code>GET /api/activities</code> 最多返回 5 条，只返回 ID、标题、摘要、链接。</li>
+<li>公开 <code>GET /api/activities</code> 最多返回 5 条，只返回 ID、标题、摘要、链接及封面。</li>
 <li>后台 <code>GET/POST /api/admin/activities</code> 列出或创建活动，<code>GET/PATCH /api/admin/activities/:id</code> 读取或更新。写入使用参数校验、会话、角色和 CSRF 检查。</li>
 </ul>
 </section>
@@ -143,7 +144,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <li>审核与内容保留策略优先用下架、隐藏或停用状态。常规接口保留审核记录，物理清除时先确认关联数据与日志保留要求。</li>
 <li>按账号、文章、后台、互动和活动划分版本化迁移。每批在独立 PostgreSQL 环境验证唯一约束、外键、事务回滚、权限拒绝和重启后持久化。</li>
 </ul>
-<p class="muted">技术参考 <a href="https://www.prisma.io/docs/orm/v7/prisma-schema/data-model/relations/many-to-many-relations">Prisma 显式多对多关系</a>。本版对应五批 PostgreSQL 迁移。</p>
+<p class="muted">技术参考 <a href="https://www.prisma.io/docs/orm/v7/prisma-schema/data-model/relations/many-to-many-relations">Prisma 显式多对多关系</a>。本版描述核心表及活动配置。</p>
 </section>
 </main>
 </body>

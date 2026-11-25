@@ -230,6 +230,7 @@ model Activity {
   title       String         @db.VarChar(120)
   summary     String         @db.VarChar(300)
   url         String?
+  coverUrl    String?        @map("cover_url")
   status      ActivityStatus @default(DRAFT)
   sortOrder   Int            @default(0) @map("sort_order")
   visibleFrom DateTime?      @map("visible_from") @db.Timestamptz(3)

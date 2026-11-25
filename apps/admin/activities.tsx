@@ -5,7 +5,7 @@ import { api, HttpError } from '../web/api';
 import { Pending } from '../web/articles';
 
 type Status='DRAFT'|'PUBLISHED'|'UNLISTED';
-type Activity={id:string;title:string;summary:string;url:string|null;status:Status;sortOrder:number;visibleFrom:string|null;visibleTo:string|null;version:number};
+type Activity={id:string;title:string;summary:string;url:string|null;coverUrl:string|null;status:Status;sortOrder:number;visibleFrom:string|null;visibleTo:string|null;version:number};
 const labels:Record<Status,string>={DRAFT:'草稿',PUBLISHED:'已发布',UNLISTED:'已下架'};
 function localDate(value:string|null|undefined) {
   if(!value)return '';
@@ -47,7 +47,7 @@ function ActivityForm({item,reload}:{item?:Activity;reload:()=>Promise<void>}) {
     const iso=(key:string)=>value(key)?new Date(value(key)).toISOString():null;
     setBusy(true);setFailure('');setSaved(false);setConflict(false);
     try{
-      const payload={title:value('title'),summary:value('summary'),url:value('url')||null,status:value('status'),sortOrder:Number(value('sortOrder')),visibleFrom:iso('visibleFrom'),visibleTo:iso('visibleTo')};
+      const payload={title:value('title'),summary:value('summary'),url:value('url')||null,coverUrl:value('coverUrl')||null,status:value('status'),sortOrder:Number(value('sortOrder')),visibleFrom:iso('visibleFrom'),visibleTo:iso('visibleTo')};
       const path='/api/admin/activities'+(item?'/'+item.id:'');
       const row=await api<Activity>(path,item?'PATCH':'POST',item?{...payload,version}:payload);
       setVersion(row.version);setSaved(true);
@@ -67,6 +67,7 @@ function ActivityForm({item,reload}:{item?:Activity;reload:()=>Promise<void>}) {
       <label htmlFor="activity-title">活动标题</label><input id="activity-title" name="title" required maxLength={120} defaultValue={item?.title}/>
       <label htmlFor="activity-summary">活动摘要</label><textarea id="activity-summary" name="summary" required maxLength={300} rows={3} defaultValue={item?.summary}/>
       <label htmlFor="activity-url">活动链接</label><input id="activity-url" name="url" type="url" maxLength={1000} defaultValue={item?.url||''}/>
+      <label htmlFor="activity-cover">活动封面（HTTPS 图片地址）</label><input id="activity-cover" name="coverUrl" type="url" maxLength={2000} defaultValue={item?.coverUrl||''}/>
       <label htmlFor="activity-status">发布状态</label><select id="activity-status" name="status" defaultValue={item?.status||'DRAFT'}>{Object.entries(labels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
       <label htmlFor="activity-sort">展示顺序（由小到大）</label><input id="activity-sort" type="number" name="sortOrder" min={0} max={9999} step={1} required defaultValue={item?.sortOrder||0}/>
       <label htmlFor="activity-from">展示开始（本地时间）</label><input id="activity-from" name="visibleFrom" type="datetime-local" defaultValue={localDate(item?.visibleFrom)}/>

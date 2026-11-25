@@ -32,10 +32,11 @@ test('activity roles, schedule, sorting, validation and stale writes against Pos
   }
   try {
     const admin=await identity('ADMIN'), user=await identity('USER');
-    const input={title:'活动测试 '+key,summary:'活动摘要',url:null,status:'DRAFT',sortOrder:0,visibleFrom:null,visibleTo:null};
+    const input={title:'活动测试 '+key,summary:'活动摘要',url:null,coverUrl:'https://example.com/event.png',status:'DRAFT',sortOrder:0,visibleFrom:null,visibleTo:null};
     const post=(payload:unknown,headers=admin)=>app.inject({method:'POST',url:adminPath,headers,payload:payload as object});
     expect((await app.inject({method:'GET',url:adminPath})).statusCode).toBe(401);
     expect((await post(input,user)).statusCode).toBe(403);
+    expect((await post({...input,coverUrl:'http://example.com/img.png'})).statusCode).toBe(400);
     expect((await post({...input,url:'javascript:alert(1)'})).statusCode).toBe(400);
     expect((await post({...input,visibleFrom:'2030-02-01T00:00:00Z',visibleTo:'2030-01-01T00:00:00Z'})).statusCode).toBe(400);
     const created=await post(input);
@@ -56,7 +57,8 @@ test('activity roles, schedule, sorting, validation and stale writes against Pos
     expect([other.statusCode,future.statusCode,past.statusCode]).toEqual([201,201,201]);
     const rows=(await publicRows()).filter(row=>[id,other.json().id,future.json().id,past.json().id].includes(row.id));
     expect(rows.map(row=>row.id)).toEqual([id,other.json().id]);
-    expect(Object.keys(rows[0]).sort()).toEqual(['id','summary','title','url']);
+    expect(rows[0]).toHaveProperty('coverUrl',input.coverUrl);
+    expect(Object.keys(rows[0]).sort()).toEqual(['coverUrl','id','summary','title','url']);
     expect((await update({...input,status:'UNLISTED',version:published.json().version})).statusCode).toBe(200);
     expect((await publicRows()).some(row=>row.id===id)).toBe(false);
   } finally {

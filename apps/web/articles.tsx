@@ -20,12 +20,13 @@ export function Pending({error,retry}: {error:Error|null;retry:()=>void}) {
   return error ? <p className="error work-message" role="alert">{error.message} <button className="subtle" onClick={retry}>重试</button></p> : <p className="work-message meta" role="status">加载中…</p>;
 }
 function useTags() { return useQuery({queryKey:['tags'],queryFn:({signal})=>api<Tag[]>('/api/tags','GET',undefined,signal)}); }
-type PublicActivity={id:string;title:string;summary:string;url:string|null};
+type PublicActivity={id:string;title:string;summary:string;url:string|null;coverUrl:string|null};
 function ActivitySidebar() {
   const query=useQuery({queryKey:['activities'],queryFn:({signal})=>api<PublicActivity[]>('/api/activities','GET',undefined,signal)});
   return <aside className="surface side"><h2>社区活动</h2>
     {!query.data?<Pending error={query.error} retry={()=>void query.refetch()}/>:query.data.length?
       <ul className="activity-list">{query.data.map(item=><li key={item.id}>
+        {item.coverUrl&&<img className="activity-cover" src={item.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={event=>{event.currentTarget.hidden=true;}}/>}
         {item.url?<a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>:<strong>{item.title}</strong>}
         <p>{item.summary}</p>
       </li>)}</ul>:<p>暂无活动</p>}
