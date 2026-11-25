@@ -11,6 +11,7 @@ export type Article = {
   id:string;title:string;summary:string|null;bodyMarkdown:string;
   author:{id:string;displayName:string;username:string};tags:{tag:Tag}[];publishedAt:string|null;
   status:'DRAFT'|'PUBLISHED'|'UNLISTED';reviewStatus:'NOT_SUBMITTED'|'PENDING'|'APPROVED'|'REJECTED';version:number;
+  viewCount:number;
   _count?:{likes:number;comments:number};
   related?:{id:string;title:string}[];reason?:string|null;
 };
@@ -54,7 +55,7 @@ export function Home() {
     {!data ? <Pending error={error} retry={()=>void refetch()}/> : data.items.length ? data.items.map(item=><article key={item.id} className="feed-item">
       <Link className="item-title" to={'/articles/'+item.id}>{item.title}</Link>
       {item.summary && <p className="description">{item.summary}</p>}
-      <div className="meta article-meta"><span>{item.author.displayName}</span><time dateTime={item.publishedAt||undefined}>{date(item.publishedAt)}</time>{item._count&&<span>{item._count.likes} 赞 · {item._count.comments} 评论</span>}{item.tags.map(({tag})=><button className="tag" onClick={()=>select(tag.id)} key={tag.id}>{tag.name}</button>)}</div>
+      <div className="meta article-meta"><span>{item.author.displayName}</span><time dateTime={item.publishedAt||undefined}>{date(item.publishedAt)}</time>{item._count&&<span>{item.viewCount} 阅读 · {item._count.likes} 赞 · {item._count.comments} 评论</span>}{item.tags.map(({tag})=><button className="tag" onClick={()=>select(tag.id)} key={tag.id}>{tag.name}</button>)}</div>
     </article>) : <div className="empty"><p>{word||filter?'没有匹配的文章':'暂无公开文章'}</p>{(word||filter)&&<button className="subtle" onClick={()=>setParams(new URLSearchParams())}>清除筛选</button>}</div>}
     {data?.nextCursor&&<button className="subtle pager" onClick={()=>{query.set('cursor',data.nextCursor!);setParams(query);window.scrollTo(0,0);}}>下一页</button>}
     </section>
@@ -64,12 +65,23 @@ export function Home() {
 export function ArticlePage() {
   const {id}=useParams();
   const query=useQuery({queryKey:['article',id],queryFn:({signal})=>api<Article>('/api/articles/'+id,'GET',undefined,signal)});
+  const [counted,setCounted]=useState<{id:string;count:number}>();
+  const available=!!query.data;
+  useEffect(()=>{
+    if(!id||!available)return;
+    let current=true;
+    void api<{viewCount:number}>('/api/articles/'+id+'/views','POST').then(result=>{
+      if(current)setCounted({id,count:result.viewCount});
+    }).catch(()=>{});
+    return()=>{current=false;};
+  },[id,available]);
   if (!query.data) return <main className="surface work">{query.error instanceof HttpError && query.error.status===404 ? <><h1>文章不存在或已下架</h1><Link to="/">返回文章列表</Link></> : <Pending error={query.error} retry={()=>void query.refetch()}/>}</main>;
   const item=query.data;
+  const readCount=counted&&counted.id===item.id ? Math.max(counted.count,item.viewCount) : item.viewCount;
   return <ArticleInteractions key={item.id} article={item}>{({actions,follow,comments})=><main className="detail-grid">
     <div className="detail-actions">{actions}<Link className="subtle" to="/">文章列表</Link><button className="subtle" onClick={async event=>{const button=event.currentTarget;try{await navigator.clipboard.writeText(location.href);button.textContent='已复制';}catch{button.textContent='复制失败';}}}>分享</button></div>
     <article className="surface detail">
-      <h1>{item.title}</h1><div className="meta article-meta"><span>{item.author.displayName}</span><time dateTime={item.publishedAt||undefined}>{date(item.publishedAt)}</time>{item._count&&<span>{item._count.likes} 赞 · {item._count.comments} 评论</span>}{item.tags.map(({tag})=><Link className="tag" to={'/?tagId='+tag.id} key={tag.id}>{tag.name}</Link>)}</div>
+      <h1>{item.title}</h1><div className="meta article-meta"><span>{item.author.displayName}</span><time dateTime={item.publishedAt||undefined}>{date(item.publishedAt)}</time>{item._count&&<span>{readCount} 阅读 · {item._count.likes} 赞 · {item._count.comments} 评论</span>}{item.tags.map(({tag})=><Link className="tag" to={'/?tagId='+tag.id} key={tag.id}>{tag.name}</Link>)}</div>
       <MarkdownWithToc source={item.bodyMarkdown} after={comments} aside={<><section className="surface side"><h2>作者</h2><p>{item.author.displayName}</p>{follow}</section>{!!item.related?.length&&<section className="surface side"><h2>相关推荐</h2><ul className="toc-list">{item.related.map(row=><li key={row.id}><Link to={'/articles/'+row.id}>{row.title}</Link></li>)}</ul></section>}</>}/>
     </article>
   </main>}</ArticleInteractions>;

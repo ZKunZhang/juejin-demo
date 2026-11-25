@@ -1,5 +1,6 @@
 import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
 import type { PrismaClient } from '../../generated/prisma/client';
+import { assureViewer } from './article-views';
 import { ApiError, security } from './security';
 
 export const uuid = { type: 'string', format: 'uuid' };
@@ -16,7 +17,7 @@ export const authorSelect = { id:true,displayName:true,username:true } as const;
 export const articleSelect = {
   id:true,title:true,summary:true,author:{select:authorSelect},
   tags:{select:{tag:{select:{id:true,name:true,slug:true}}}},
-  publishedAt:true,updatedAt:true,
+  publishedAt:true,updatedAt:true,viewCount:true,
   _count:{select:{likes:true,comments:{where:{status:"VISIBLE"}}}},
 } as const;
 export const draftSelect = { ...articleSelect, bodyMarkdown:true, status:true, reviewStatus:true, version:true } as const;
@@ -30,7 +31,7 @@ const decodeCursor = (value: string, tag: string, word: string) => {
   } catch { throw new ApiError(400,'INVALID_CURSOR','分页参数无效'); }
 };
 
-export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: ReturnType<typeof security>, protectedWrite: preHandlerHookHandler[]) {
+export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: ReturnType<typeof security>, protectedWrite: preHandlerHookHandler[], secure: boolean) {
   const write = [...protectedWrite,auth.requireUser];
   const tagCheck = async (tagIds: string[]) => {
     if (await db.tag.count({where:{id:{in:tagIds}}}) !== tagIds.length) throw new ApiError(400,'UNKNOWN_TAG','存在无效标签');
@@ -60,9 +61,11 @@ export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: R
     const last = items.at(-1);
     return {items,nextCursor:extra&&last ? Buffer.from(JSON.stringify([last.publishedAt,last.id,tagId||'',word])).toString('base64url') : null};
   });
-  app.get<{Params:Identified}>('/api/articles/:id',{schema:{params:idSchema}},async request=>{
+  app.get<{Params:Identified}>('/api/articles/:id',{schema:{params:idSchema}},async (request,reply)=>{
     const row = await db.article.findFirst({where:{id:request.params.id,status:'PUBLISHED'},select:{...articleSelect,bodyMarkdown:true}});
     if (!row) throw missing();
+    assureViewer(request,reply,secure);
+    reply.header('Cache-Control','private, no-store');
     const related = await db.article.findMany({where:{status:'PUBLISHED',id:{not:row.id},tags:{some:{tagId:{in:row.tags.map(entry=>entry.tag.id)}}}},select:{id:true,title:true},orderBy:{publishedAt:'desc'},take:4});
     return {...row,related};
   });

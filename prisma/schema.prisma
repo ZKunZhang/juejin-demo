@@ -78,12 +78,14 @@ model Article {
   summary      String?
   status       ArticleStatus @default(DRAFT)
   reviewStatus ReviewStatus  @default(NOT_SUBMITTED) @map("review_status")
+  viewCount    Int           @default(0) @map("view_count")
   version      Int           @default(1)
   publishedAt  DateTime?     @map("published_at") @db.Timestamptz(3)
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   author       User          @relation(fields: [authorId], references: [id])
   tags         ArticleTag[]
+  viewWindows  ArticleViewWindow[]
   comments     Comment[]
   reviews      ArticleReview[]
   likes        ArticleLike[]
@@ -242,4 +244,15 @@ model Activity {
 
   @@index([status, sortOrder, id])
   @@map("activities")
+}
+
+model ArticleViewWindow {
+  articleId     String   @map("article_id") @db.Uuid
+  viewerKey     String   @map("viewer_key")
+  lastCountedAt DateTime @map("last_counted_at") @db.Timestamptz(3)
+  article       Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, viewerKey])
+  @@index([lastCountedAt])
+  @@map("article_view_windows")
 }
