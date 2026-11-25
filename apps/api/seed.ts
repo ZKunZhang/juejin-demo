@@ -59,19 +59,31 @@ try {
     });
   }
   if (process.env.ENABLE_DEMO_PULSES === 'true') {
-    const author = await db.user.findUniqueOrThrow({ where: { username: 'reader_gamma' } });
-    const tag = await db.tag.findUniqueOrThrow({ where: { slug: 'tools' } });
-    const demoId = 'f03c5e20-9ac8-446c-a05c-3ffc7c68f690';
-    await db.pulse.upsert({ where: { id: demoId }, update: {}, create: {
-      id: demoId, authorId: author.id, body: '今天整理了一份开发工作台。你最近用得最多的工具是什么？',
-      images: ['/sample.png'], featured: true, tags: { create: { tagId: tag.id } },
-    } });
-    const topic=await db.tag.findUniqueOrThrow({where:{slug:'work-break'}});
-    const shortId='f03c5e20-9ac8-446c-a05c-3ffc7c68f691';
-    await db.pulse.upsert({where:{id:shortId},update:{},create:{
-      id:shortId,authorId:author.id,body:'昨晚好像做了个好梦，但是醒来就不记得是什么了',
-      tags:{create:{tagId:topic.id}},
-    }});
+    const fixtures = [
+      ['90', 'reader_gamma', 'tools', '今天整理了一份开发工作台。你最近用得最多的工具是什么？', ['/sample.png'], true],
+      ['91', 'reader_gamma', 'work-break', '昨晚好像做了个好梦，但是醒来就不记得是什么了', [], false],
+      ['92', 'admin_demo', 'developer-life', '准备收集一份技术写作选题清单。最近有什么小问题，值得写篇短文记录一下？', [], true],
+      ['93', 'admin_demo', 'project-notes', '整理了社区活动的发布检查项：标题、介绍、封面和展示时间。正式发布前可以先保存草稿核对内容。', [], false],
+      ['94', 'author_alpha', 'frontend', '今天把文章编辑器拆成输入、预览和发布三个部分。切换预览时保留原来的输入位置，写长文章舒服多了。', [], false],
+      ['95', 'author_alpha', 'project-notes', 'Markdown 里可能有两个同名标题。我的处理是给第二个锚点追加序号，再用目录点击和刷新直达各验一次。', [], true],
+      ['96', 'reader_beta', 'backend', '复习 PostgreSQL 事务时写了个小练习：故意让第二次写入失败，检查第一条记录有没有一起回滚。', [], false],
+      ['97', 'reader_beta', 'work-break', '午休前记下一个待查的问题，回来再看竟然一眼找到原因。遇到卡住半小时的 bug，你会怎么处理？', [], false],
+      ['98', 'reader_gamma', 'developer-life', '周末试着给自己的小项目写了一页 README。最费时间的竟然是说明为什么要做它。', [], false],
+      ['99', 'reader_gamma', 'ai', '在小工具里给模型请求加了取消按钮。现在切换输入后，旧请求的结果不会盖掉新内容。', [], false],
+    ] as const;
+    const demoUsers = await db.user.findMany({ where: { username: { in: fixtures.map(row => row[1]) } } });
+    const topics = await db.tag.findMany({ where: { slug: { in: fixtures.map(row => row[2]) }, scope: { not: 'ARTICLE' } } });
+    await db.$transaction(async tx => {
+      for (const [suffix, username, slug, body, images, featured] of fixtures) {
+        const author = demoUsers.find(user => user.username === username);
+        const topic = topics.find(item => item.slug === slug);
+        if (!author || !topic) throw new Error('Missing demo pulse author or topic: ' + username + ' / ' + slug);
+        const id = 'f03c5e20-9ac8-446c-a05c-3ffc7c68f6' + suffix;
+        await tx.pulse.upsert({ where: { id }, update: {}, create: {
+          id, authorId: author.id, body, images: [...images], featured, tags: { create: { tagId: topic.id } },
+        } });
+      }
+    });
   }
   if (process.env.ENABLE_DEMO_COURSES === 'true') await seedCourses(db);
   console.log('演示账号已初始化：', accounts.map(account => account.username).join('、'));
