@@ -1,12 +1,14 @@
+import { adminCreatedAt, adminDateSchema, type AdminDateQuery } from './admin-date-range';
 import { notifyFollowers } from './notifications';
 import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
 import type { PrismaClient } from '../../generated/prisma/client';
 import { ApiError, security } from './security';
 import { articleSelect, authorSelect, conflict, draftSelect, missing, object, uuid, versionSchema } from './articles';
+import { commentSearch, commentSearchSchema } from './comment-search';
 
 type Status='DRAFT'|'PUBLISHED'|'UNLISTED';
 type Review='NOT_SUBMITTED'|'PENDING'|'APPROVED'|'REJECTED';
-type Action='SUBMIT'|'APPROVE'|'REJECT'|'UNLIST'|'RETURN_TO_DRAFT';
+type Action='SUBMIT'|'APPROVE'|'REJECT'|'UNLIST'|'RELIST'|'RETURN_TO_DRAFT';
 type Params={id:string};
 type Change={version:number;reason?:string};
 type CommentStatus='VISIBLE'|'HIDDEN';
@@ -19,6 +21,7 @@ const transitions:Record<Action,{from:Status;review:Review[];to:Status;next:Revi
   APPROVE:{from:'DRAFT',review:['PENDING'],to:'PUBLISHED',next:'APPROVED'},
   REJECT:{from:'DRAFT',review:['PENDING'],to:'DRAFT',next:'REJECTED'},
   UNLIST:{from:'PUBLISHED',review:['APPROVED'],to:'UNLISTED',next:'APPROVED'},
+  RELIST:{from:'UNLISTED',review:['APPROVED'],to:'PUBLISHED',next:'APPROVED'},
   RETURN_TO_DRAFT:{from:'UNLISTED',review:['APPROVED'],to:'DRAFT',next:'NOT_SUBMITTED'},
 };
 export function registerModeration(app:FastifyInstance,db:PrismaClient,auth:ReturnType<typeof security>,write:preHandlerHookHandler[]) {
@@ -51,12 +54,13 @@ export function registerModeration(app:FastifyInstance,db:PrismaClient,auth:Retu
       preHandler:[...write,auth.requireUser],schema:{params,body:object({version:versionSchema})},
     },request=>transition(request.params.id,request.actor!.id,action,request.body));
   }
-  app.get<{Querystring:{status?:Status;reviewStatus?:Review;page?:string}}>('/api/admin/articles',{
-    preHandler:auth.requireAdmin,schema:{querystring:object({status:{enum:['DRAFT','PUBLISHED','UNLISTED']},reviewStatus:{enum:['NOT_SUBMITTED','PENDING','APPROVED','REJECTED']},page:pageSchema},[])},
+  app.get<{Querystring:{status?:Status;reviewStatus?:Review;page?:string}&AdminDateQuery}>('/api/admin/articles',{
+    preHandler:auth.requireAdmin,schema:{querystring:object({status:{enum:['DRAFT','PUBLISHED','UNLISTED']},reviewStatus:{enum:['NOT_SUBMITTED','PENDING','APPROVED','REJECTED']},page:pageSchema,...adminDateSchema},[])},
   },async request=>{
     const page=Number(request.query.page||1);
-    const items=await db.article.findMany({where:{status:request.query.status,reviewStatus:request.query.reviewStatus},
-      select:{...articleSelect,status:true,reviewStatus:true,version:true},orderBy:[{updatedAt:'desc'},{id:'desc'}],skip:(page-1)*30,take:31});
+    const items=await db.article.findMany({where:{status:request.query.status,reviewStatus:request.query.reviewStatus,createdAt:adminCreatedAt(request.query)},
+      select:{...articleSelect,createdAt:true,status:true,reviewStatus:true,version:true,
+        _count:{select:{...articleSelect._count.select,comments:true}}},orderBy:[{updatedAt:'desc'},{id:'desc'}],skip:(page-1)*30,take:31});
     const hasMore=items.length>30;if(hasMore)items.pop();
     return {items,hasMore};
   });
@@ -72,12 +76,27 @@ export function registerModeration(app:FastifyInstance,db:PrismaClient,auth:Retu
   app.post<{Params:Params;Body:Change}>('/api/admin/articles/:id/unlist',{
     preHandler:[...write,auth.requireAdmin],schema:{params,body:object({version:versionSchema,reason:reasonSchema})},
   },request=>transition(request.params.id,request.actor!.id,'UNLIST',request.body));
+  app.post<{Params:Params;Body:Change}>('/api/admin/articles/:id/relist',{
+    preHandler:[...write,auth.requireAdmin],schema:{params,body:object({version:versionSchema})},
+  },request=>transition(request.params.id,request.actor!.id,'RELIST',request.body));
 
-  app.get<{Querystring:{articleId?:string;status?:CommentStatus;page?:string}}>('/api/admin/comments',{
-    preHandler:auth.requireAdmin,schema:{querystring:object({articleId:uuid,status:commentStatus,page:pageSchema},[])},
+  app.get<{Querystring:{q?:string}}>('/api/admin/comments/sources',{
+    preHandler:auth.requireAdmin,schema:{querystring:object({q:commentSearchSchema},[])},
+  },async request=>{
+    const search=commentSearch(request.query.q);
+    const rows=await db.article.findMany({
+      where:{comments:{some:{}},OR:search ? [{title:search.text},...(search.id?[{id:search.id}]:[])] : undefined},
+      select:{id:true,title:true},orderBy:[{updatedAt:'desc'},{id:'desc'}],take:20,
+    });
+    return rows.map(row=>({id:row.id,label:row.title||'未命名文章'}));
+  });
+  app.get<{Querystring:{articleId?:string;status?:CommentStatus;page?:string;q?:string}&AdminDateQuery}>('/api/admin/comments',{
+    preHandler:auth.requireAdmin,schema:{querystring:object({articleId:uuid,status:commentStatus,page:pageSchema,q:commentSearchSchema,...adminDateSchema},[])},
   },async request=>{
     const page=Number(request.query.page||1);
-    const items=await db.comment.findMany({where:{articleId:request.query.articleId,status:request.query.status},
+    const search=commentSearch(request.query.q);
+    const items=await db.comment.findMany({where:{articleId:request.query.articleId,status:request.query.status,createdAt:adminCreatedAt(request.query),
+      OR:search ? [{body:search.text},{article:{title:search.text}},...(search.id?[{articleId:search.id}]:[])] : undefined},
       select:{id:true,body:true,status:true,createdAt:true,parent:{select:{id:true,status:true}},author:{select:authorSelect},article:{select:{id:true,title:true}}},
       orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*30,take:31});
     const hasMore=items.length>30;if(hasMore)items.pop();

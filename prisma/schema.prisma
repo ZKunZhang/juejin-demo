@@ -37,12 +37,19 @@ model User {
   reviews      ArticleReview[]
   moderations  CommentModeration[]
   likes        ArticleLike[]
+  commentLikes CommentLike[]
   bookmarks    ArticleBookmark[]
+  bookmarkCollections BookmarkCollection[]
   following    UserFollow[] @relation("Follower")
   followers    UserFollow[] @relation("Followee")
   activities   Activity[]
   pulses       Pulse[]
+  pulseComments PulseComment[]
+  pulseCommentLikes PulseCommentLike[]
+  pulseReviews PulseReview[]
+  pulseCommentReviews PulseCommentReview[]
   courses      Course[]
+  courseLessonComments CourseLessonComment[]
   pulseLikes   PulseLike[]
   checkins     Checkin[]
 
@@ -139,6 +146,7 @@ enum ReviewAction {
   REJECT
   UNLIST
   RETURN_TO_DRAFT
+  RELIST
 }
 
 enum CommentStatus {
@@ -179,12 +187,25 @@ model Comment {
   author      User                @relation(fields: [authorId], references: [id])
   parent      Comment?            @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Restrict)
   replies     Comment[]           @relation("CommentReplies")
+  likes       CommentLike[]
   moderations CommentModeration[]
 
   @@index([articleId, status, createdAt, id])
   @@index([status, createdAt, id])
   @@index([parentId, status, createdAt, id])
   @@map("comments")
+}
+
+model CommentLike {
+  userId    String   @map("user_id") @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, commentId])
+  @@index([commentId, userId])
+  @@map("comment_likes")
 }
 
 model CommentModeration {
@@ -214,14 +235,31 @@ model ArticleLike {
   @@map("article_likes")
 }
 
+model BookmarkCollection {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(60)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookmarks ArticleBookmark[]
+
+  @@unique([userId, id])
+  @@unique([userId, name])
+  @@map("bookmark_collections")
+}
+
 model ArticleBookmark {
   userId    String   @map("user_id") @db.Uuid
   articleId String   @map("article_id") @db.Uuid
+  collectionId String? @map("collection_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
+  collection BookmarkCollection? @relation(fields: [userId, collectionId], references: [userId, id], onDelete: NoAction)
+
   @@id([userId, articleId])
+  @@index([userId, collectionId, createdAt, articleId])
   @@index([articleId, userId])
   @@map("article_bookmarks")
 }
@@ -276,20 +314,109 @@ model ArticleViewWindow {
   @@map("article_view_windows")
 }
 
+enum PulseStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+  UNLISTED
+}
+
 model Pulse {
   id        String      @id @default(uuid()) @db.Uuid
   authorId  String      @map("author_id") @db.Uuid
   body      String
   images    String[]    @default([])
   featured  Boolean     @default(false)
+  viewCount Int         @default(0) @map("view_count")
+  status    PulseStatus @default(PENDING)
+  reviewReason String?  @map("review_reason")
   createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   author    User        @relation(fields: [authorId], references: [id])
   tags      PulseTag[]
   likes     PulseLike[]
+  comments  PulseComment[]
+  reviews   PulseReview[]
+  viewWindows PulseViewWindow[]
 
   @@index([createdAt, id])
+  @@index([status, createdAt, id])
   @@index([authorId, createdAt])
   @@map("pulses")
+}
+
+model PulseViewWindow {
+  pulseId       String   @map("pulse_id") @db.Uuid
+  viewerKey     String   @map("viewer_key")
+  lastCountedAt DateTime @map("last_counted_at") @db.Timestamptz(3)
+  pulse         Pulse    @relation(fields: [pulseId], references: [id], onDelete: Cascade)
+
+  @@id([pulseId, viewerKey])
+  @@index([lastCountedAt])
+  @@map("pulse_view_windows")
+}
+
+model PulseComment {
+  id        String        @id @default(uuid()) @db.Uuid
+  pulseId   String        @map("pulse_id") @db.Uuid
+  authorId  String        @map("author_id") @db.Uuid
+  parentId  String?       @map("parent_id") @db.Uuid
+  body      String
+  status    CommentStatus @default(VISIBLE)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  pulse     Pulse         @relation(fields: [pulseId], references: [id], onDelete: Cascade)
+  author    User          @relation(fields: [authorId], references: [id])
+  reviews   PulseCommentReview[]
+  parent    PulseComment? @relation("PulseCommentReplies", fields:[parentId], references:[id], onDelete:Cascade)
+  replies   PulseComment[] @relation("PulseCommentReplies")
+  likes     PulseCommentLike[]
+
+  @@index([pulseId, status, createdAt, id])
+  @@index([parentId, status, createdAt, id])
+  @@index([status, createdAt, id])
+  @@map("pulse_comments")
+}
+
+
+model PulseCommentLike {
+  userId    String   @map("user_id") @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  comment   PulseComment @relation(fields:[commentId], references:[id], onDelete:Cascade)
+
+  @@id([userId, commentId])
+  @@index([commentId, userId])
+  @@map("pulse_comment_likes")
+}
+
+model PulseReview {
+  id         String      @id @default(uuid()) @db.Uuid
+  pulseId    String      @map("pulse_id") @db.Uuid
+  adminId    String      @map("admin_id") @db.Uuid
+  fromStatus PulseStatus @map("from_status")
+  toStatus   PulseStatus @map("to_status")
+  reason     String?
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  pulse      Pulse       @relation(fields: [pulseId], references: [id], onDelete: Cascade)
+  admin      User        @relation(fields: [adminId], references: [id])
+
+  @@index([pulseId, createdAt])
+  @@map("pulse_reviews")
+}
+
+model PulseCommentReview {
+  id         String        @id @default(uuid()) @db.Uuid
+  commentId  String        @map("comment_id") @db.Uuid
+  adminId    String        @map("admin_id") @db.Uuid
+  fromStatus CommentStatus @map("from_status")
+  toStatus   CommentStatus @map("to_status")
+  reason     String?
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  comment    PulseComment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  admin      User          @relation(fields: [adminId], references: [id])
+
+  @@index([commentId, createdAt])
+  @@map("pulse_comment_reviews")
 }
 
 model PulseTag {
@@ -375,8 +502,24 @@ model CourseLesson {
   status    CourseStatus @default(DRAFT)
   course    Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
+  comments  CourseLessonComment[]
+
   @@unique([courseId, position])
   @@map("course_lessons")
+}
+
+
+model CourseLessonComment {
+  id        String       @id @default(uuid()) @db.Uuid
+  lessonId  String       @map("lesson_id") @db.Uuid
+  authorId  String       @map("author_id") @db.Uuid
+  body      String
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  lesson    CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  author    User         @relation(fields: [authorId], references: [id])
+
+  @@index([lessonId, createdAt, id])
+  @@map("course_lesson_comments")
 }
 
 enum NotificationKind {

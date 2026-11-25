@@ -1,11 +1,11 @@
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 
 const base=process.env.BROWSER_BASE_URL||'http://127.0.0.1:5173';
 const title='活动验收 '+randomUUID().slice(0,8);
-const browser=await chromium.launch();
+const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||undefined});
 try {
   const adminContext=await browser.newContext();
   const admin=await adminContext.newPage();
@@ -26,15 +26,17 @@ try {
   const stale=await adminContext.newPage();
   await stale.goto(admin.url());
   await stale.getByLabel('活动标题').waitFor();
-  await admin.getByLabel('发布状态').selectOption('PUBLISHED');
+  await admin.getByRole('combobox', {name:'发布状态'}).click();
+  await admin.getByRole('option', {name:'已发布',exact:true}).click();
   await admin.getByRole('button',{name:'保存活动'}).click();
   await admin.getByText('活动已保存',{exact:true}).waitFor();
   await guest.reload();
   await guest.getByText(title,{exact:true}).waitFor();
   await stale.getByRole('button',{name:'保存活动'}).click();
   await stale.getByRole('button',{name:'放弃当前修改并加载最新版本'}).click();
-  await stale.waitForFunction(()=>document.querySelector('#activity-status')?.value==='PUBLISHED');
-  await admin.getByLabel('发布状态').selectOption('UNLISTED');
+  await expect(stale.locator('.app-select')).toContainText('已发布');
+  await admin.getByRole('combobox', {name:'发布状态'}).click();
+  await admin.getByRole('option', {name:'已下架',exact:true}).click();
   await admin.getByRole('button',{name:'保存活动'}).click();
   await admin.getByText('活动已保存',{exact:true}).waitFor();
   await guest.reload();

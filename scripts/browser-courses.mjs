@@ -1,29 +1,92 @@
 import assert from 'node:assert/strict';
-import { chromium } from '@playwright/test';
+import { randomBytes } from 'node:crypto';
+import { chromium, expect } from '@playwright/test';
+import pg from 'pg';
 
-const base=process.env.BROWSER_BASE_URL||'http://127.0.0.1:5173';
-const browser=await chromium.launch();
+const base = process.env.BROWSER_BASE_URL || 'http://127.0.0.1:5173';
+const username = 'course_browser_' + randomBytes(6).toString('hex');
+const name = '课程读者 ' + randomBytes(3).toString('hex');
+const text = '章节评论 ' + randomBytes(6).toString('hex');
+const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || undefined });
 try {
-  const page=await browser.newPage();
-  await page.goto(base+'/courses');
-  await page.getByLabel('分类').selectOption({label:'前端'});
-  await page.getByLabel('难度').selectOption({label:'进阶'});
-  const selected=page.getByRole('link',{name:'React 前端工程实践'});
-  await selected.waitFor();
-  await page.waitForURL(/categoryId=.*level=ADVANCED/);
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  page.setDefaultTimeout(10000);
+  await page.goto(base + '/courses');
+  const list = page.getByRole('list', { name: '课程列表' });
+  await expect(list).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '课程目录' })).toHaveCount(0);
+  await page.getByRole('combobox', { name: '分类', exact: true }).click();
+  await page.getByRole('option', { name: '前端', exact: true }).click();
+  await page.getByRole('combobox', { name: '难度', exact: true }).click();
+  await page.getByRole('option', { name: '进阶', exact: true }).click();
+  await expect(page).toHaveURL(/categoryId=.+&level=ADVANCED/);
+  await expect(list.getByRole('link').first()).toContainText('进阶');
+  const filteredUrl = page.url();
+  await list.getByRole('link').first().click();
+  await expect(page).toHaveURL(/\/courses\/[\w-]+$/);
+  await expect(page.getByRole('heading', { name: '小册介绍' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '推荐小册' })).toBeVisible();
+  await page.getByRole('button', { name: '目录', exact: true }).click();
+  await expect(page.getByRole('list', { name: '章节列表' })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(filteredUrl);
+  await list.getByRole('link').first().click();
+  await page.getByRole('link', { name: '开始阅读' }).click();
+  await expect(page).toHaveURL(/\/courses\/[\w-]+\/lessons\/[\w-]+$/);
+  await expect(page.getByRole('navigation', { name: '课程目录' })).toBeVisible();
+  const sidebar = page.locator('.course-sidebar');
+  const reading = page.locator('.course-reading');
+  const left = await sidebar.boundingBox();
+  const right = await reading.boundingBox();
+  assert(left.x + left.width <= right.x, 'Directory must be left of content');
+  await expect(reading.getByRole('region', { name: '章节评论' })).toBeVisible();
+  await expect(reading.getByRole('heading', { name: '本章导航' })).toBeVisible();
+  const directory = page.getByRole('navigation', { name: '课程目录' });
+  const firstLink = directory.getByRole('link').first();
+  await expect(firstLink).toHaveAttribute('aria-current', 'page');
+  const links = await directory.getByRole('link').count();
+  assert(links > 1, 'Fixture requires at least two chapters');
+  const secondLink = directory.getByRole('link').nth(1);
+  const lessonPath = await secondLink.getAttribute('href');
+  const { title: secondTitle } = await (await page.request.get(base + '/api' + lessonPath)).json();
+  await secondLink.click();
+  await expect(reading.getByRole('heading', { name: secondTitle, exact: true, level: 1 })).toBeVisible();
+  const selectedUrl = page.url();
   await page.reload();
-  await selected.waitFor();
-  await selected.click();
-  await page.getByRole('heading',{name:'学习方式'}).waitFor();
-  await page.getByRole('button',{name:'目录'}).click();
-  await page.getByRole('link',{name:'接通接口与缓存'}).click();
-  await page.getByRole('heading',{name:'接通接口与缓存',level:1}).waitFor();
-  await page.getByRole('link',{name:'返回《React 前端工程实践》目录'}).click();
-  await page.getByRole('heading',{name:'推荐小册'}).waitFor();
-  assert.match(await page.url(),/tab=directory/);
-  for(const width of [1440,768,390,320]){
-    await page.setViewportSize({width,height:900});
-    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await expect(secondLink).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('link', { name: '登录后发表评论', exact: true }).click();
+  await page.getByRole('link', { name: '去注册' }).click();
+  await expect(page.getByLabel('昵称')).toBeVisible();
+  await page.getByLabel('用户名').fill(username);
+  await page.getByLabel('昵称').fill(name);
+  await page.getByLabel('密码', { exact: true }).fill(randomBytes(12).toString('hex'));
+  await page.getByRole('button', { name: '注册', exact: true }).click();
+  await page.waitForURL(selectedUrl);
+  const comments = reading.getByRole('region', { name: '章节评论' });
+  await comments.getByLabel('发表评论').fill(text);
+  await comments.getByRole('button', { name: '发表评论', exact: true }).click();
+  await comments.getByText(text, { exact: true }).waitFor();
+  const markdownBox = await reading.locator('.markdown').boundingBox();
+  const commentsBox = await comments.boundingBox();
+  assert(markdownBox.y + markdownBox.height <= commentsBox.y, 'Comments must follow content');
+  await page.reload();
+  await comments.getByText(text, { exact: true }).waitFor();
+  await firstLink.click();
+  await expect(firstLink).toHaveAttribute('aria-current', 'page');
+  await expect(comments.getByText(text, { exact: true })).toHaveCount(0);
+  await secondLink.click();
+  await comments.getByText(text, { exact: true }).waitFor();
+  for (const width of [1024, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Course overflow at ' + width);
   }
-  console.log('Playwright course filters, detail, directory, chapters and responsive layouts passed.');
-}finally{await browser.close();}
+  console.log('Course directory/content positions, chapter selection, registration, comments persistence and isolation, and four narrow viewports passed.');
+} finally {
+  await browser.close();
+  const db = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await db.connect();
+  try {
+    await db.query('DELETE FROM course_lesson_comments WHERE author_id IN (SELECT id FROM users WHERE username=$1)', [username]);
+    await db.query('DELETE FROM users WHERE username=$1', [username]);
+  } finally { await db.end(); }
+}

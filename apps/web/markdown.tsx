@@ -27,7 +27,7 @@ function safeUrl(url:string) {
 export function Markdown({ source }: {source:string}) {
   return <div className="markdown"><ReactMarkdown skipHtml remarkPlugins={[remarkGfm,headingIds]} urlTransform={safeUrl}>{source}</ReactMarkdown></div>;
 }
-export function MarkdownWithToc({source, after, aside}: {source:string;after?:React.ReactNode;aside?:React.ReactNode}) {
+export function MarkdownWithToc({source, after, aside, title = '文章目录'}: {source:string;after?:React.ReactNode;aside?:React.ReactNode;title?:string}) {
   const ref=useRef<HTMLDivElement>(null);
   const [headings,setHeadings]=useState<{id:string;text:string;level:number}[]>([]);
   useEffect(()=>{
@@ -36,8 +36,8 @@ export function MarkdownWithToc({source, after, aside}: {source:string;after?:Re
   },[source]);
   const toc = headings.length ? <ul className="toc-list">{headings.map(h=><li key={h.id} style={{paddingInlineStart:Math.min(h.level-1,4)*8}}><a href={'#'+h.id}>{h.text}</a></li>)}</ul> : <p className="meta">暂无目录</p>;
   return <>
-    <details className="mobile-toc"><summary>文章目录</summary>{toc}</details>
+    <details className="mobile-toc"><summary>{title}</summary>{toc}</details>
     <div ref={ref}><Markdown source={source}/>{after}</div>
-    <aside className="article-aside">{aside}<section className="surface side desktop-toc"><h2>文章目录</h2>{toc}</section></aside>
+    <aside className="article-aside">{aside}<section className="surface side desktop-toc"><h2>{title}</h2>{toc}</section></aside>
   </>;
 }

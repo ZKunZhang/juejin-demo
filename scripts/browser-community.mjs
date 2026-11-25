@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
@@ -22,7 +22,7 @@ async function login(username,password,path='/login',fromComments=false){
   const loginResponse=page.waitForResponse(response=>response.url().endsWith('/api/auth/login')&&response.request().method()==='POST');
   await page.getByRole('button',{name:'登录',exact:true}).click();
   assert.equal((await loginResponse).status(),200);
-  await page.waitForURL(fromComments ? base+path : path.startsWith('/admin') ? base+'/admin/articles' : base+'/');
+  await page.waitForURL(fromComments ? base+path+'#article-comments' : path.startsWith('/admin') ? base+'/admin/articles' : base+'/');
   assert.equal((await page.request.get(base+'/api/auth/me')).status(),200);
   return page;
 }
@@ -32,6 +32,7 @@ try {
   const guest=await browser.newPage();
   await author.goto(base+'/creator/articles/new');
   await author.getByLabel('标题').fill(title);
+  await author.getByText('发布设置',{exact:true}).click();
   await author.getByRole('checkbox',{name:'前端'}).check();
   await author.getByLabel('Markdown 正文').fill('## 中文目录\n\n这是验收文章。\n\n## 中文目录\n\n第二节。');
   await author.getByRole('button',{name:'提交审核'}).click();
@@ -44,11 +45,17 @@ try {
   await admin.getByLabel('审核原因').fill('请补充摘要');
   await admin.getByRole('button',{name:'驳回',exact:true}).click();
   await admin.getByText('驳回成功',{exact:true}).waitFor();
-  await author.reload();
+  const drafts=base+'/creator/articles?status=draft';
+  await author.goto(drafts);
+  await author.getByRole('link',{name:title,exact:true}).click();
   await author.getByText('处理原因：请补充摘要').waitFor();
+  await author.getByText('发布设置',{exact:true}).click();
   await author.getByLabel('摘要').fill('已补充摘要');
   await author.getByRole('button',{name:'提交审核'}).click();
-  await author.getByText('已提交审核',{exact:true}).waitFor();
+  await author.waitForURL(drafts);
+  await author.getByRole('link',{name:title,exact:true}).waitFor({state:'hidden'});
+  await author.getByRole('link',{name:'全部文章',exact:true}).click();
+  await author.getByRole('listitem').filter({hasText:title}).getByText('待审核',{exact:true}).waitFor();
   await admin.reload();
   await admin.getByRole('button',{name:'审核通过',exact:true}).click();
   await admin.getByText('审核通过成功',{exact:true}).waitFor();
@@ -83,10 +90,13 @@ try {
     await reader.getByLabel('发表评论').fill(comments[i]);
     await reader.getByRole('button',{name:'发表评论'}).click();
     await reader.getByText(comments[i],{exact:true}).waitFor();
-    for(const [name,changed] of [['点赞','取消点赞'],['收藏','取消收藏'],['关注作者','取消关注']]){
+    for(const [name,changed] of [['点赞','取消点赞'],['关注作者','取消关注']]){
       await reader.getByRole('button',{name,exact:true}).click();
       await reader.getByRole('button',{name:changed,exact:true}).waitFor();
     }
+    await reader.getByRole('button',{name:'收藏',exact:true}).click();
+    await reader.getByRole('button',{name:'保存到合集',exact:true}).click();
+    await reader.getByRole('button',{name:'管理收藏',exact:true}).waitFor();
   }
   const visible=await (await guest.request.get(commentPath)).json();
   assert.equal(visible.length,100);
@@ -124,6 +134,39 @@ try {
   const ownReply=ownRoot.replies.find(item=>item.body===ownReplyText);
   assert.equal(ownReply.author.id,ownRoot.author.id);
   assert.equal(ownReply.parentId,ownRoot.id);
+  const rootLikePath=commentPath+'/'+root.id+'/like';
+  assert.equal((await guest.request.put(rootLikePath,{
+    headers:{origin:base,'x-csrf-token':(await guestCsrf.json()).csrfToken},data:{active:true},
+  })).status(),401);
+  const betaRoot=beta.locator('.comment-list > li').filter({has:beta.getByText(comments[0],{exact:true})});
+  const betaRootLike=betaRoot.locator(':scope > .comment-controls button[aria-pressed]');
+  await betaRootLike.click();
+  await expect(betaRootLike).toHaveText('1');
+  const repeated=await beta.request.put(rootLikePath,{
+    headers:{origin:base,'x-csrf-token':betaCsrf},data:{active:true},
+  });
+  assert.deepEqual(await repeated.json(),{liked:true,likeCount:1});
+  const gammaRoot=gamma.locator('.comment-list > li').filter({has:gamma.getByText(comments[0],{exact:true})});
+  const gammaRootLike=gammaRoot.locator(':scope > .comment-controls button[aria-pressed]');
+  await gamma.reload();
+  await expect(gammaRootLike).toHaveText('1');
+  await gammaRootLike.click();
+  await expect(gammaRootLike).toHaveText('2');
+  const ownReplyLike=ownThread.getByRole('list',{name:'二级回复'}).getByRole('button',{name:'点赞评论'});
+  await ownReplyLike.click();
+  await expect(ownThread.getByRole('list',{name:'二级回复'}).getByRole('button',{name:'取消评论点赞'})).toHaveText('1');
+  await gamma.reload();
+  await expect(gammaRootLike).toHaveText('2');
+  await expect(ownThread.getByRole('list',{name:'二级回复'}).getByRole('button',{name:'取消评论点赞'})).toHaveText('1');
+  await beta.reload();
+  await expect(betaRootLike).toHaveText('2');
+  await betaRootLike.click();
+  await expect(betaRootLike).toHaveText('1');
+  const guestThreads=await (await guest.request.get(commentPath)).json();
+  assert.equal(guestThreads.find(item=>item.id===root.id).liked,false);
+  assert.equal(guestThreads.find(item=>item.id===root.id).likeCount,1);
+  const storedLikes=await db.query('SELECT user_id FROM comment_likes WHERE comment_id=$1',[root.id]);
+  assert.deepEqual(storedLikes.rows,[{user_id:ids.reader_gamma}]);
   otherArticleId=randomUUID();
   await db.query(
     "INSERT INTO articles (id,author_id,title,body_markdown,status,review_status,published_at,updated_at) VALUES ($1,$2,$3,'另一篇文章','PUBLISHED','APPROVED',now(),now())",
@@ -140,14 +183,15 @@ try {
   }
   await beta.getByRole('button',{name:'取消点赞',exact:true}).click();
   await beta.getByRole('button',{name:'点赞',exact:true}).waitFor();
-  await beta.getByRole('button',{name:'取消收藏',exact:true}).click();
+  await beta.getByRole('button',{name:'管理收藏',exact:true}).click();
+  await beta.getByRole('dialog',{name:'管理收藏'}).getByRole('button',{name:'取消收藏',exact:true}).click();
   await beta.getByRole('button',{name:'收藏',exact:true}).waitFor();
   await gamma.reload();
   await gamma.getByRole('button',{name:'取消点赞',exact:true}).waitFor();
-  await gamma.getByRole('button',{name:'取消收藏',exact:true}).waitFor();
-  await gamma.goto(base+'/me/bookmarks');
+  await gamma.getByRole('button',{name:'管理收藏',exact:true}).waitFor();
+  await gamma.goto(base+'/me/bookmarks?collection=default');
   await gamma.getByRole('link',{name:title,exact:true}).waitFor();
-  await beta.goto(base+'/me/bookmarks');
+  await beta.goto(base+'/me/bookmarks?collection=default');
   await beta.getByRole('heading',{name:'我的收藏'}).waitFor();
   assert.equal(await beta.getByRole('link',{name:title,exact:true}).count(),0);
   await gamma.goto(base+'/me/following');
@@ -162,6 +206,9 @@ try {
   assert.equal(await guest.getByText(comments[0],{exact:true}).count(),0);
   assert.equal(await guest.getByText(replyText,{exact:true}).count(),0);
   assert.equal(await readCommentCount(),102);
+  assert.equal((await beta.request.put(commentPath+'/'+reply.id+'/like',{
+    headers:{origin:base,'x-csrf-token':betaCsrf},data:{active:true},
+  })).status(),404);
   assert.equal((await beta.request.post(commentPath,{
     headers:{origin:base,'x-csrf-token':betaCsrf},data:{body:'不允许回复已隐藏评论',parentId:root.id},
   })).status(),404);

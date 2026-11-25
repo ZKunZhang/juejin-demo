@@ -5,6 +5,7 @@ import { api, HttpError } from './api';
 import { useSession } from './session';
 import { Markdown, MarkdownWithToc } from './markdown';
 import { ArticleInteractions } from './interactions';
+import { ArticleIcon } from './article-icons';
 import './creator.css';
 
 export type Tag = {id:string;name:string;slug:string};
@@ -75,6 +76,8 @@ export function Home() {
 }
 export function ArticlePage() {
   const {id}=useParams();
+  const [shareStatus,setShareStatus]=useState<{id:string;message:string}>();
+  const client=useQueryClient();
   const query=useQuery({queryKey:['article',id],queryFn:({signal})=>api<Article>('/api/articles/'+id,'GET',undefined,signal)});
   const [counted,setCounted]=useState<{id:string;count:number}>();
   const available=!!query.data;
@@ -83,14 +86,28 @@ export function ArticlePage() {
     let current=true;
     void api<{viewCount:number}>('/api/articles/'+id+'/views','POST').then(result=>{
       if(current)setCounted({id,count:result.viewCount});
+      void client.invalidateQueries({queryKey:['profile']});
     }).catch(()=>{});
     return()=>{current=false;};
-  },[id,available]);
+  },[id,available,client]);
   if (!query.data) return <main className="surface work">{query.error instanceof HttpError && query.error.status===404 ? <><h1>文章不存在或已下架</h1><Link to="/">返回文章列表</Link></> : <Pending error={query.error} retry={()=>void query.refetch()}/>}</main>;
   const item=query.data;
+  const shareMessage=shareStatus?.id===item.id?shareStatus.message:'';
   const readCount=counted&&counted.id===item.id ? Math.max(counted.count,item.viewCount) : item.viewCount;
   return <ArticleInteractions key={item.id} article={item}>{({actions,follow,comments})=><main className="detail-grid">
-    <div className="detail-actions">{actions}<Link className="subtle" to="/">文章列表</Link><button className="subtle" onClick={async event=>{const button=event.currentTarget;try{await navigator.clipboard.writeText(location.href);button.textContent='已复制';}catch{button.textContent='复制失败';}}}>分享</button></div>
+    <div className="detail-actions">
+      {actions}
+      <Link className="subtle article-action-icon" to="/" aria-label="文章列表" title="文章列表"><ArticleIcon name="list"/></Link>
+      <button type="button" className="subtle article-action-icon" aria-label="分享" title="分享" onClick={async()=>{
+        try {
+          await navigator.clipboard.writeText(location.href);
+          setShareStatus({id:item.id,message:'已复制'});
+        } catch {
+          setShareStatus({id:item.id,message:'复制失败'});
+        }
+      }}><ArticleIcon name={shareMessage==='已复制'?'check':'share'}/></button>
+      {shareMessage&&<span className="meta" role="status">{shareMessage}</span>}
+    </div>
     <article className="surface detail">
       <h1>{item.title}</h1><div className="meta article-meta"><span>{item.author.displayName}</span><time dateTime={item.publishedAt||undefined}>{date(item.publishedAt)}</time>{item._count&&<span>{readCount} 阅读 · {item._count.likes} 赞 · {item._count.comments} 评论</span>}{item.tags.map(({tag})=><Link className="tag" to={'/?tagId='+tag.id} key={tag.id}>{tag.name}</Link>)}</div>
       <MarkdownWithToc source={item.bodyMarkdown} after={comments} aside={<><section className="surface side"><h2>作者</h2><p>{item.author.displayName}</p>{follow}</section>{!!item.related?.length&&<section className="surface side"><h2>相关推荐</h2><ul className="toc-list">{item.related.map(row=><li key={row.id}><Link to={'/articles/'+row.id}>{row.title}</Link></li>)}</ul></section>}</>}/>
@@ -111,9 +128,9 @@ export function Creator() {
   if(loading||error)return <main className="surface work"><Pending error={error} retry={retry}/></main>;
   if(!user)return <main className="surface work"><Link to="/login?next=/creator/articles" state={{ background: location }}>登录创作者中心</Link></main>;
   const rows=query.data;
-  return <main className="surface work"><div className="work-title"><h1>{draftOnly?'草稿箱':'我的文章'}</h1><Link className="primary" to="/creator/articles/new">写文章</Link></div>
+  return <main className="surface work"><div className="work-title"><h1>{draftOnly?'草稿箱':'我的文章'}</h1><Link className="primary" to="/creator/articles/new" state={{ returnToPrevious: true }}>写文章</Link></div>
     <nav className="creator-content-tabs" aria-label="文章列表筛选"><Link to="/creator">创作者首页</Link><Link to="/creator/articles">全部文章</Link><Link to="/creator/articles?status=draft">草稿箱</Link></nav>
-    {!query.data ? <Pending error={query.error} retry={()=>void query.refetch()}/> : rows?.length ? <ul className="work-list">{rows.map(row=><li key={row.id}><Link to={'/creator/articles/'+row.id+'/edit'}>{row.title||'未命名文章'}</Link><span className="tag">{statusText(row)}</span></li>)}</ul> : <p className="work-message meta">暂无文章</p>}
+    {!query.data ? <Pending error={query.error} retry={()=>void query.refetch()}/> : rows?.length ? <ul className="work-list">{rows.map(row=><li key={row.id}><Link to={'/creator/articles/'+row.id+'/edit'} state={{ returnToPrevious: true }}>{row.title||'未命名文章'}</Link><span className="tag">{statusText(row)}</span></li>)}</ul> : <p className="work-message meta">暂无文章</p>}
     <div className="creator-content-tabs">{page>1&&<Link to={pageLink(page-1)}>上一页</Link>}{rows?.length===100&&page<9999&&<Link to={pageLink(page+1)}>下一页</Link>}</div>
   </main>;
 }
@@ -150,6 +167,7 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
   }
   const client=useQueryClient();
   const navigate=useNavigate();
+  const location=useLocation();
   const readOnly=!!row&&(row.status!=='DRAFT'||row.reviewStatus==='PENDING');
   useEffect(()=>{if(row)document.title=(row.title||'草稿')+' · 码栈';return()=>{document.title='码栈 · 开发者社区';};},[row]);
   async function save(event:FormEvent<HTMLFormElement>) {
@@ -167,9 +185,14 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
         setRow(saved);
         client.setQueryData(['draft',saved.id,saved.author.id],saved);
         await Promise.all(['creator','creator-overview'].map(key=>client.invalidateQueries({queryKey:[key]})));
-        setStatus('已提交审核');
-        if(!article)navigate('/creator/articles/'+saved.id+'/edit',{replace:true});
-      }else{setStatus('草稿已保存');if(!article)navigate('/creator/articles/'+saved.id+'/edit',{replace:true});}
+        if(article) {
+          if(location.state?.returnToPrevious === true) navigate(-1);
+          else navigate('/creator/articles',{replace:true});
+        } else navigate('/creator/articles/'+saved.id+'/edit',{replace:true,state:location.state});
+      }else{
+        setStatus('草稿已保存');
+        if(!article)navigate('/creator/articles/'+saved.id+'/edit',{replace:true,state:location.state});
+      }
     }catch(error){setFailure(error instanceof Error?error.message:'保存失败，请重试');}
     finally{setBusy(false);}
   }
@@ -194,7 +217,7 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
     ['列表','列表','- ','','列表项'],
   ] as const;
   return <main className="surface editor creator-editor">
-    <form onSubmit={save}>
+    <form className="creator-editor-form" onSubmit={save}>
       <div className="creator-editor-header">
         <div><Link to="/creator">创作者中心</Link><h1>{row?'编辑文章':'写文章'}</h1></div>
         <label className="creator-editor-title"><span>标题</span><input id="title" maxLength={160} placeholder="输入文章标题…" value={title} disabled={busy||readOnly} onChange={event=>setTitle(event.target.value)}/></label>
@@ -206,6 +229,10 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
       <div className="creator-editor-toolbar">
         <div role="group" aria-label="Markdown 格式">{tools.map(([label,icon,before,after,sample])=><button key={label} type="button" className="subtle" title={label} aria-label={label} disabled={busy||readOnly||mode==='preview'} onClick={()=>insert(before,after,sample)}>{icon}</button>)}</div>
         <div className="editor-modes" role="group" aria-label="编辑视图">
+          <details className="creator-editor-settings"><summary>发布设置</summary><div className="surface creator-editor-settings-panel">
+        <label htmlFor="summary">摘要</label><input id="summary" maxLength={500} value={summary} disabled={busy||readOnly} onChange={event=>setSummary(event.target.value)}/>
+        <fieldset disabled={busy||readOnly}><legend>标签</legend><div className="tag-options">{tags.map(tag=><label key={tag.id}><input type="checkbox" checked={tagIds.includes(tag.id)} disabled={tagIds.length>=10&&!tagIds.includes(tag.id)} onChange={event=>setTagIds(event.target.checked?[...tagIds,tag.id]:tagIds.filter(id=>id!==tag.id))}/>{tag.name}</label>)}</div></fieldset>
+      </div></details>
           <button type="button" className="subtle editor-split-toggle" aria-pressed={mode==='split'} onClick={()=>setMode('split')}>双栏</button><button type="button" className="subtle" aria-pressed={mode==='edit'} onClick={()=>setMode('edit')}>编辑</button><button type="button" className="subtle" aria-pressed={mode==='preview'} onClick={()=>setMode('preview')}>预览</button>
         </div>
       </div>
@@ -216,10 +243,7 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
       <div className="creator-editor-footer"><span>字符数 {body.length.toLocaleString('zh-CN')}</span><span>行数 {body.split('\n').length}</span>{row&&<span>{statusText(row)} · 版本 {row.version}</span>}</div>
       {row?.reason&&(row.reviewStatus==='REJECTED'||row.status==='UNLISTED')&&<p className="error creator-editor-message">处理原因：{row.reason}</p>}
       {failure&&<p className="error creator-editor-message" role="alert">{failure}</p>}{status&&<p className="creator-editor-message" role="status">{status}</p>}
-      <section className="creator-editor-settings" aria-labelledby="creator-publish-settings"><h2 id="creator-publish-settings">发布设置</h2>
-        <label htmlFor="summary">摘要</label><input id="summary" maxLength={500} value={summary} disabled={busy||readOnly} onChange={event=>setSummary(event.target.value)}/>
-        <fieldset disabled={busy||readOnly}><legend>标签</legend><div className="tag-options">{tags.map(tag=><label key={tag.id}><input type="checkbox" checked={tagIds.includes(tag.id)} disabled={tagIds.length>=10&&!tagIds.includes(tag.id)} onChange={event=>setTagIds(event.target.checked?[...tagIds,tag.id]:tagIds.filter(id=>id!==tag.id))}/>{tag.name}</label>)}</div></fieldset>
-      </section>
+
     </form>
   </main>;
 }

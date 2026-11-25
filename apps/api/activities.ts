@@ -1,3 +1,4 @@
+import { adminCreatedAt, adminDateSchema, type AdminDateQuery } from './admin-date-range';
 import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
 import type { PrismaClient } from '../../generated/prisma/client';
 import { ApiError, security } from './security';
@@ -59,11 +60,11 @@ export function registerActivities(app:FastifyInstance,db:PrismaClient,auth:Retu
       {OR:[{visibleTo:null},{visibleTo:{gt:now}}]},
     ]},select:safeFields,orderBy:[{sortOrder:'asc'},{id:'asc'}],take:5});
   });
-  app.get<{Querystring:{page?:string}}>('/api/admin/activities',{
-    preHandler:auth.requireAdmin,schema:{querystring:object({page:{type:'string',pattern:'^[1-9][0-9]{0,3}$'}},[])},
+  app.get<{Querystring:{page?:string}&AdminDateQuery}>('/api/admin/activities',{
+    preHandler:auth.requireAdmin,schema:{querystring:object({page:{type:'string',pattern:'^[1-9][0-9]{0,3}$'},...adminDateSchema},[])},
   },async request=>{
     const page=Number(request.query.page||1);
-    const items=await db.activity.findMany({select:adminFields,orderBy:[{sortOrder:'asc'},{id:'asc'}],skip:(page-1)*30,take:31});
+    const items=await db.activity.findMany({where:{createdAt:adminCreatedAt(request.query)},select:{...adminFields,createdAt:true},orderBy:[{sortOrder:'asc'},{id:'asc'}],skip:(page-1)*30,take:31});
     const hasMore=items.length>30;if(hasMore)items.pop();
     return {items,hasMore};
   });

@@ -1,13 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from './api';
+import { api, HttpError } from './api';
 import { useSession } from './session';
+import { refreshFollowState } from './follow-cache';
 import { Pending, type Tag } from './articles';
 import './pulses.css';
 import './leaderboard.css';
+import { AppSelect } from './select';
+import { CommentSection } from './comments';
 
-type Pulse={id:string;body:string;images:string[];featured:boolean;createdAt:string;author:{id:string;displayName:string;avatarUrl:string|null};tags:{tag:Tag}[];_count:{likes:number};liked:boolean;following:boolean};
+type Pulse={id:string;body:string;images:string[];featured:boolean;createdAt:string;author:{id:string;displayName:string;avatarUrl:string|null};tags:{tag:Tag}[];_count:{likes:number;comments:number};liked:boolean;following:boolean};
 type Topic=Tag&{_count:{pulses:number}};
 type RankedAuthor={id:string;displayName:string;likes:number;pulses:number};
 const labels={following:'关注',recommended:'推荐',latest:'最新'} as const;
@@ -84,6 +87,7 @@ export function Pulses() {
   const [failure,setFailure]=useState('');
   const [publishing,setPublishing]=useState(false);
   const tags=useQuery({queryKey:['pulse-topics'],queryFn:({signal})=>api<Topic[]>('/api/pulses/topics','GET',undefined,signal)});
+  const [submitted,setSubmitted]=useState(false);
   const recommendedTopics=tags.data?.filter(item=>item._count.pulses>0).sort((a,b)=>b._count.pulses-a._count.pulses).slice(0,5);
   const feed=useQuery({queryKey:['pulses',tab,tag,user?.id],enabled:tab!=='following'||!!user,queryFn:({signal})=>api<Pulse[]>('/api/pulses?'+new URLSearchParams({tab,...(tag?{tagId:tag}:{})}),'GET',undefined,signal)});
   const featured=useQuery({queryKey:['featured-pulses',user?.id],queryFn:({signal})=>api<Pulse[]>('/api/pulses?tab=featured','GET',undefined,signal)});
@@ -93,11 +97,11 @@ export function Pulses() {
     setParams(next);
   }
   async function publish(event:FormEvent) {
-    event.preventDefault();setFailure('');setPublishing(true);
+    event.preventDefault();setFailure('');setSubmitted(false);setPublishing(true);
     try{
       await api('/api/pulses','POST',{body:text,images:images.split('\n').map(url=>url.trim()).filter(Boolean),...(selected?{tagId:selected}:{})});
-      setText('');setImages('');setSelected('');setParams(new URLSearchParams({tab:'latest'}));
-      await Promise.all(['pulses','pulse-topics','pulse-leaderboard','creator-overview'].map(key=>client.invalidateQueries({queryKey:[key]})));
+      setText('');setImages('');setSelected('');setSubmitted(true);
+      await client.invalidateQueries({queryKey:['creator-overview',user?.id]});
     }catch(error){setFailure(error instanceof Error?error.message:'发布失败');}
     finally{setPublishing(false);}
   }
@@ -110,8 +114,10 @@ export function Pulses() {
         {user?<form onSubmit={publish}>
           <label htmlFor="pulse-body">分享动态</label><textarea id="pulse-body" rows={3} maxLength={2000} value={text} onChange={event=>setText(event.target.value)}/>
           <label htmlFor="pulse-images">图片地址（每行一个，最多四张）</label><textarea id="pulse-images" rows={2} maxLength={8000} value={images} onChange={event=>setImages(event.target.value)} placeholder="https://"/>
-          <div className="pulse-controls"><select aria-label="发布话题" value={selected} onChange={event=>setSelected(event.target.value)}><option value="">选择话题</option>{tags.data?.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select><button className="primary" type="submit" disabled={publishing||(!text.trim()&&!images.trim())}>{publishing?'发布中…':'发布沸点'}</button></div>
+          <div className="pulse-controls"><AppSelect label="发布话题" value={selected} onChange={setSelected}
+            options={[{ value: '', label: '选择话题' }, ...(tags.data ?? []).map(item => ({ value: item.id, label: item.name }))]}/><button className="primary" type="submit" disabled={publishing||(!text.trim()&&!images.trim())}>{publishing?'提交中…':'提交审核'}</button></div>
           {failure&&<p className="error" role="alert">{failure}</p>}
+          {submitted&&<p role="status">已提交，等待审核</p>}
         </form>:<Link to={login} state={{background:location}}>登录后发布沸点</Link>}
       </section>
       <section className="surface" aria-label="沸点列表">
@@ -135,28 +141,93 @@ export function Pulses() {
     </aside>
   </main>;
 }
-function PulseCard({item,login}:{item:Pulse;login:string}) {
+type PulseDetailData={pulse:Pulse;related:Pick<Pulse,'id'|'body'|'images'|'_count'>[]};
+export function PulseDetail() {
+  const {id}=useParams();
+  const location=useLocation();
+  const {user}=useSession();
+  const result=useQuery({queryKey:['pulse-detail',id,user?.id],queryFn:({signal})=>api<PulseDetailData>('/api/pulses/'+id,'GET',undefined,signal)});
+  const ready=!!result.data;
+  useEffect(()=>{
+    if(ready&&location.hash==='#pulse-comments')document.getElementById('pulse-comments')?.scrollIntoView();
+  },[id,ready,location.hash]);
+  if(!result.data)return <main className="surface work">{result.error instanceof HttpError&&result.error.status===404
+    ?<><h1>沸点不存在或未公开</h1><Link to="/pulses">返回沸点</Link></>:<Pending error={result.error} retry={()=>void result.refetch()}/>}</main>;
+  const {pulse,related}=result.data;
+  const login='/login?next='+encodeURIComponent(location.pathname+location.hash);
+  return <main className="pulse-detail-layout">
+    <div className="pulse-detail-content">
+      <div className="surface"><PulseCard key={pulse.id} item={pulse} login={login} detail/></div>
+      <div className="surface pulse-detail-discussion">
+        <CommentSection key={pulse.id+':'+(user?.id||'guest')} id="pulse-comments" threaded count={pulse._count.comments}
+          path={'/api/pulses/'+pulse.id+'/comments'} variant="pulse-detail" refresh={[['pulses'],['pulse-detail',pulse.id]]}/>
+      </div>
+    </div>
+    <aside className="surface side pulse-related"><h2>相关推荐</h2>
+      {related.length?<ul>{related.map(row=><li key={row.id}><Link to={'/pulses/'+row.id}>
+        <div><span className="pulse-related-text">{row.body||'图片沸点'}</span><span className="meta">{row._count.likes} 赞 · {row._count.comments} 评论</span></div>
+        {row.images[0]&&<img src={row.images[0]} alt="" loading="lazy" referrerPolicy="no-referrer" onError={event=>{event.currentTarget.hidden=true;}}/>}
+      </Link></li>)}</ul>:<p>暂无同话题推荐</p>}
+    </aside>
+  </main>;
+}
+function PulseCard({item,login,detail=false}:{item:Pulse;login:string;detail?:boolean}) {
   const {user}=useSession();
   const location=useLocation();
   const client=useQueryClient();
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [showComments,setShowComments]=useState(false);
+  const heading=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const element=heading.current;
+    if(!element||!('IntersectionObserver' in window))return;
+    let timer:number|undefined;
+    let inView=false;
+    function schedule() {
+      window.clearTimeout(timer);
+      if(inView&&document.visibilityState==='visible')timer=window.setTimeout(()=>{
+        observer.disconnect();
+        document.removeEventListener('visibilitychange',schedule);
+        const path='/api/pulses/'+item.id+'/views';
+        void api(path,'POST').catch(()=>api(path,'POST')).catch(()=>{});
+      },1000);
+    }
+    const observer=new IntersectionObserver(([entry])=>{
+      inView=entry.isIntersecting&&entry.intersectionRatio>=0.25;
+      schedule();
+    },{threshold:0.25});
+    document.addEventListener('visibilitychange',schedule);
+    observer.observe(element);
+    return()=>{
+      window.clearTimeout(timer);
+      observer.disconnect();
+      document.removeEventListener('visibilitychange',schedule);
+    };
+  },[item.id]);
   async function toggle(kind:'like'|'follow') {
     setBusy(true);setError('');
     try{
-      if(kind==='like') await api('/api/pulses/'+item.id+'/like','PUT',{active:!item.liked});
-      else await api('/api/users/'+item.author.id+'/follow','PUT',{active:!item.following});
-      await Promise.all(['pulses','following','pulse-leaderboard'].map(key=>client.invalidateQueries({queryKey:[key]})));
+      if(kind==='follow'){
+        await api('/api/users/'+item.author.id+'/follow','PUT',{active:!item.following});
+        await refreshFollowState(client);
+      }else{
+        await api('/api/pulses/'+item.id+'/like','PUT',{active:!item.liked});
+        await Promise.all(['pulses','pulse-leaderboard','pulse-detail'].map(key=>client.invalidateQueries({queryKey:[key]})));
+      }
     }
     catch(error){setError(error instanceof Error?error.message:'操作失败');}
     finally{setBusy(false);}
   }
-  return <article className="pulse-card"><div className="article-meta"><span className="avatar" aria-hidden="true">{item.author.avatarUrl?.startsWith('https://')?<img src={item.author.avatarUrl} alt="" referrerPolicy="no-referrer"/>:Array.from(item.author.displayName)[0]}</span><strong>{item.author.displayName}</strong><time className="meta" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</time>{item.featured&&<span className="tag">精选</span>}{user&&user.id!==item.author.id&&<button className="subtle pulse-follow" type="button" aria-pressed={item.following} disabled={busy} onClick={()=>void toggle('follow')}>{item.following?'取消关注':'关注作者'}</button>}</div>
+  return <article className="pulse-card"><div className="article-meta" ref={heading}><span className="avatar" aria-hidden="true">{item.author.avatarUrl?.startsWith('https://')?<img src={item.author.avatarUrl} alt="" referrerPolicy="no-referrer"/>:Array.from(item.author.displayName)[0]}</span><strong>{item.author.displayName}</strong><time className="meta" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</time>{item.featured&&<span className="tag">精选</span>}{user&&user.id!==item.author.id&&<button className="subtle pulse-follow" type="button" aria-pressed={item.following} disabled={busy} onClick={()=>void toggle('follow')}>{item.following?'取消关注':'关注作者'}</button>}</div>
     {item.body&&<p>{item.body}</p>}
     {!!item.images.length&&<div className="pulse-images">{item.images.map((url,index)=><a href={url} key={url} target="_blank" rel="noreferrer"><img src={url} alt={'沸点图片 '+(index+1)} loading="lazy" referrerPolicy="no-referrer"/></a>)}</div>}
     <div className="article-meta">{item.tags.map(({tag})=><span className="tag" key={tag.id}>{tag.name}</span>)}
       {user?<button className="subtle" type="button" aria-pressed={item.liked} onClick={()=>void toggle('like')} disabled={busy}>{item.liked?'取消点赞':'点赞'} · {item._count.likes}</button>:<Link to={login} state={{background:location}} className="subtle">点赞 · {item._count.likes}</Link>}
+      {detail?<a href="#pulse-comments" className="subtle">评论 · {item._count.comments}</a>:<button className="subtle" type="button" aria-expanded={showComments} onClick={()=>setShowComments(!showComments)}>评论 · {item._count.comments}</button>}
     </div>{error&&<p className="error" role="alert">{error}</p>}
+    {!detail&&showComments&&<CommentSection key={user?.id} threaded count={item._count.comments} variant="pulse-preview" allHref={'/pulses/'+item.id+'#pulse-comments'}
+      path={'/api/pulses/'+item.id+'/comments'} refresh={[['pulses'],['pulse-detail',item.id]]}/>}
   </article>;
 }
 function Checkin({userId}:{userId:string}) {

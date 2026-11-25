@@ -11,10 +11,17 @@ async function decode<T>(response: Response): Promise<T> {
   if (!response.ok) throw new HttpError(response.status, data?.error?.code || 'REQUEST_FAILED', data?.error?.message || '请求未能完成');
   return data as T;
 }
+let csrfRequest: Promise<{ csrfToken: string }> | undefined;
+function getCsrf() {
+  csrfRequest ??= fetch('/api/auth/csrf', { credentials: 'same-origin' })
+    .then(decode<{ csrfToken: string }>)
+    .finally(() => { csrfRequest = undefined; });
+  return csrfRequest;
+}
 export async function api<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = {};
   if (method !== 'GET') {
-    const { csrfToken } = await decode<{ csrfToken: string }>(await fetch('/api/auth/csrf', { credentials: 'same-origin' }));
+    const { csrfToken } = await getCsrf();
     headers['X-CSRF-Token'] = csrfToken;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
   }

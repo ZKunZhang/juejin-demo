@@ -40,7 +40,7 @@ export function CreatorMenu() {
       <summary aria-label="创作快捷入口" title="创作快捷入口">⌄</summary>
       <div className="surface creator-menu-panel">
         {shortcuts.map(([label,path,icon])=><Link key={path} to={user?path:'/login?next='+encodeURIComponent(path)}
-          state={user?undefined:{background:location}} onClick={()=>{if(menu.current)menu.current.open=false;}}><span aria-hidden="true">{icon}</span>{label}</Link>)}
+          state={user ? (path === '/creator/articles/new' ? { returnToPrevious: true } : undefined) : {background:location}} onClick={()=>{if(menu.current)menu.current.open=false;}}><span aria-hidden="true">{icon}</span>{label}</Link>)}
       </div>
     </details>
   </div>;
@@ -57,7 +57,7 @@ export function CreatorDashboard() {
   if(!user)return <main className="surface work"><h1>创作者中心</h1><Link to="/login?next=/creator" state={{background:location}}>登录后开始创作</Link></main>;
   const data=overview.data;
   return <main className="creator-layout">
-    <aside className="surface creator-sidebar"><Link className="primary" to="/creator/articles/new">写文章</Link>
+    <aside className="surface creator-sidebar"><Link className="primary" to="/creator/articles/new" state={{ returnToPrevious: true }}>写文章</Link>
       <nav aria-label="创作者导航"><Link to="/creator" aria-current="page">首页</Link><Link to="/creator/articles">文章管理</Link><Link to="/creator/articles?status=draft">草稿箱</Link><Link to="/pulses#publish">发沸点</Link><Link to="/me">个人主页</Link></nav>
     </aside>
     <div className="creator-main">
@@ -70,7 +70,7 @@ export function CreatorDashboard() {
       </section>
       <section className="surface creator-card"><div className="work-title"><h2>近期内容</h2><Link to="/creator/articles">文章管理</Link></div>
         <nav className="creator-content-tabs" aria-label="近期内容"><button className="subtle" aria-pressed={tab==='articles'} onClick={()=>setTab('articles')}>文章</button><button className="subtle" aria-pressed={tab==='pulses'} onClick={()=>setTab('pulses')}>沸点</button></nav>
-        {!data?<Pending error={overview.error} retry={()=>void overview.refetch()}/>:tab==='articles'?(data.recentArticles.length?<ul className="work-list">{data.recentArticles.map(item=><li key={item.id}><Link to={'/creator/articles/'+item.id+'/edit'}>{item.title||'未命名文章'}</Link><span className="tag">{statusText(item)}</span></li>)}</ul>:<p className="meta">暂无文章</p>):(data.recentPulses.length?<ul className="work-list creator-recent-pulses">{data.recentPulses.map(item=><li key={item.id}><span>{item.body||'图片沸点'}</span><time className="meta" dateTime={item.createdAt}>{date.format(new Date(item.createdAt))}</time></li>)}</ul>:<p className="meta">暂无沸点</p>)}
+        {!data?<Pending error={overview.error} retry={()=>void overview.refetch()}/>:tab==='articles'?(data.recentArticles.length?<ul className="work-list">{data.recentArticles.map(item=><li key={item.id}><Link to={'/creator/articles/'+item.id+'/edit'} state={{ returnToPrevious: true }}>{item.title||'未命名文章'}</Link><span className="tag">{statusText(item)}</span></li>)}</ul>:<p className="meta">暂无文章</p>):(data.recentPulses.length?<ul className="work-list creator-recent-pulses">{data.recentPulses.map(item=><li key={item.id}><span>{item.body||'图片沸点'}</span><time className="meta" dateTime={item.createdAt}>{date.format(new Date(item.createdAt))}</time></li>)}</ul>:<p className="meta">暂无沸点</p>)}
       </section>
     </div>
     <aside className="creator-main">

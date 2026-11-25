@@ -27,13 +27,22 @@
   background: var(--bg);
 }
 
-.community .site-header .search:focus-within {
+.community .site-header .search:has(input:focus) {
   border-color: var(--brand);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 24%, transparent);
 }
 
 .community .site-header .search input {
   border: 0;
   background: transparent;
+}
+
+.community .site-header .search input:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .community .site-header .account {
@@ -56,51 +65,47 @@
   max-width: 12rem;
 }
 
-.profile-identity {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px 0;
-  overflow-wrap: anywhere;
-}
-
-.profile-identity .avatar {
-  width: 64px;
-  height: 64px;
-  font-size: 26px;
-}
-
-.profile-identity h2 {
-  font-size: 22px;
-}
-
-.profile-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-
-.profile-links a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: var(--radius);
-  background: var(--bg);
-}
-
-.profile-links a:hover {
-  background: var(--selected);
-}
-
 .home-grid {
   gap: 16px;
 }
 
 .home-grid .filter {
   padding: 12px;
+}
+
+.community .site-header {
+  transform: translateY(0);
+  transition: transform 240ms cubic-bezier(.2, .7, .25, 1);
+}
+
+.community .site-header-hidden:not(:has(:focus-visible, .search:focus-within, details[open])) {
+  transform: translateY(-100%);
+}
+
+@media (min-width: 768px) {
+  .home-grid .filter,
+  .detail-grid .detail-actions {
+    position: sticky;
+    top: 80px;
+    max-height: calc(100dvh - 96px);
+    overflow: auto;
+    scroll-padding: 6px;
+  }
+
+  :is(.home-grid .filter, .detail-grid .detail-actions, .course-sidebar, .course-reading .article-aside) {
+    transition: top 240ms cubic-bezier(.2, .7, .25, 1);
+  }
+
+  .site-header-hidden:not(:has(:focus-visible, .search:focus-within, details[open])) + :is(.home-grid, .detail-grid, .courses-page)
+    :is(.filter, .detail-actions, .course-sidebar, .course-reading .article-aside) {
+    top: 16px;
+    max-height: calc(100dvh - 32px);
+  }
+
+  .home-grid .filter :focus-visible,
+  .detail-grid .detail-actions :focus-visible {
+    outline-offset: -3px;
+  }
 }
 
 .home-grid .filter h2 {
@@ -165,8 +170,7 @@
   font-size: 15px;
 }
 
-.community .markdown pre,
-.community .comment-form textarea {
+.community .markdown pre {
   background: var(--bg);
 }
 

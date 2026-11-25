@@ -80,7 +80,7 @@ try {
         if (!author || !topic) throw new Error('Missing demo pulse author or topic: ' + username + ' / ' + slug);
         const id = 'f03c5e20-9ac8-446c-a05c-3ffc7c68f6' + suffix;
         await tx.pulse.upsert({ where: { id }, update: {}, create: {
-          id, authorId: author.id, body, images: [...images], featured, tags: { create: { tagId: topic.id } },
+          id, authorId: author.id, body, images: [...images], featured, status: 'PUBLISHED', tags: { create: { tagId: topic.id } },
         } });
       }
     });
