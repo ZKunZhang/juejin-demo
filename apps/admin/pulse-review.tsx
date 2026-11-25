@@ -1,3 +1,4 @@
+import { AdminPageSwitch } from './page-switch';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -79,10 +80,7 @@ export function PulseReview({ featured = false }: { featured?: boolean }) {
           </div></td>
         </tr>) : <tr><td colSpan={6}><p className="meta admin-table-empty">{emptyMessage}</p></td></tr>}</tbody>
       </table></div>
-      <div className="editor-actions">
-        <button className="subtle" disabled={page === 1} onClick={() => setPage(page - 1)}>上一页</button>
-        <button className="subtle" disabled={!query.data.hasMore} onClick={() => setPage(page + 1)}>下一页</button>
-      </div>
+      <AdminPageSwitch page={page} more={query.data.hasMore} update={setPage}/>
     </>}
     {pulse && <PulseDialog key={pulse.id} pulse={pulse} featured={selected?.action==='featured'} close={() => setSelected(undefined)}
       refresh={async () => { await query.refetch(); }} done={async message => {

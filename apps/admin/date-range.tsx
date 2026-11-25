@@ -1,3 +1,4 @@
+import { Button, Input } from 'antd';
 import { useId, useState } from 'react';
 
 export type AdminRange = { from: string; to: string };
@@ -19,14 +20,14 @@ export function AdminDateRange({ applied, onApply }: { applied: AdminRange; onAp
     if (!invalid) onApply(range);
   }}>
     <span className="meta">创建日期（北京时间）</span>
-    <label htmlFor={id+'-from'}>开始日期<input id={id+'-from'} type="date" value={range.from}
+    <label htmlFor={id+'-from'}>开始日期<Input id={id+'-from'} type="date" value={range.from}
       onChange={event=>setRange({...range,from:event.target.value})}/></label>
-    <label htmlFor={id+'-to'}>结束日期<input id={id+'-to'} type="date" value={range.to}
+    <label htmlFor={id+'-to'}>结束日期<Input id={id+'-to'} type="date" value={range.to}
       onChange={event=>setRange({...range,to:event.target.value})}/></label>
-    <button className="subtle" type="submit" disabled={invalid||!changed}>按日期筛选</button>
-    {(range.from||range.to||applied.from||applied.to)&&<button className="subtle" type="button" onClick={()=>{
+    <Button type="primary" htmlType="submit" disabled={invalid||!changed}>按日期筛选</Button>
+    {(range.from||range.to||applied.from||applied.to)&&<Button onClick={()=>{
       setRange(emptyRange);onApply(emptyRange);
-    }}>清除日期</button>}
+    }}>清除日期</Button>}
     {invalid&&<p className="error" role="alert">结束日期不能早于开始日期</p>}
   </form>;
 }

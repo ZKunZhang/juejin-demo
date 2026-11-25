@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
+import { Button, ConfigProvider, Menu } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ActivityEditor, ActivityQueue } from './activities';
 import { LeaderboardAdmin, PulseReview } from './pulse-review';
 import { AdminDateRange, adminTime, appendAdminRange, emptyRange } from './date-range';
+import { AdminPageSwitch as PageSwitch } from './page-switch';
 import { AdminDialog } from './dialog';
 import { api } from '../web/api';
 import { CommentMessage } from '../web/comments';
@@ -14,6 +17,7 @@ import { Markdown } from '../web/markdown';
 import { Pending, statusText, type Article } from '../web/articles';
 import '../web/styles.css';
 import './admin.css';
+import './admin-controls.css';
 import { AppSelect } from '../web/select';
 
 const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
@@ -25,6 +29,30 @@ type PulseComment=CommentBase & {pulse:{id:string;body:string}};
 const errors=(error:unknown)=>error instanceof Error?error.message:'处理失败，请重试';
 const actionText:Record<string,string>={SUBMIT:'提交审核',APPROVE:'审核通过',REJECT:'驳回',UNLIST:'下架',RELIST:'重新上架',RETURN_TO_DRAFT:'转回草稿'};
 
+const adminSections = [
+  ['/articles', '文章管理'],
+  ['/comments', '评论管理'],
+  ['/pulses', '沸点管理'],
+  ['/pulses/featured', '精选沸点'],
+  ['/activities', '活动管理'],
+  ['/leaderboard', '社区排行榜'],
+] as const;
+
+function AdminNavigation() {
+  const { pathname } = useLocation();
+  const active = [...adminSections].reverse().find(([path]) => pathname === path || pathname.startsWith(path + '/'));
+  return <nav className="surface admin-nav admin-library-nav" aria-label="管理导航">
+    <Menu selectedKeys={active ? [active[0]] : []} items={[
+      ...adminSections.map(([path, title]) => ({
+        key: path,
+        label: <Link to={path} aria-current={active?.[0] === path ? 'page' : undefined}>{title}</Link>,
+      })),
+      { type: 'divider' },
+      { key: 'front', label: <a href="/">访问前台</a> },
+    ]}/>
+  </nav>;
+}
+
 function AdminShell() {
   const {user,loading,error,retry,update}=useSession();
   const [failure,setFailure]=useState('');
@@ -32,14 +60,11 @@ function AdminShell() {
   if(loading||error)return <main className="surface work"><Pending error={error} retry={retry}/></main>;
   if(!user)return <Routes><Route path="/login" element={<AuthPage admin/>}/><Route path="*" element={<Navigate to="/login" replace/>}/></Routes>;
   if(user.role!=='ADMIN')return <main className="surface work"><h1>没有后台访问权限</h1><button className="subtle" onClick={logout}>退出并换账号</button>{failure&&<p className="error" role="alert">{failure}</p>}</main>;
-  return <div className="admin-shell"><header className="site-header admin-header"><div className="header-inner"><Link className="wordmark" to="/"><span className="brand-mark">◇</span>码栈管理后台</Link><div className="account"><span className="nickname">{user.displayName}</span><button className="subtle" onClick={logout}>退出</button></div></div></header>
-    <main className="admin admin-grid"><nav className="surface admin-nav" aria-label="管理导航"><NavLink to="/comments">评论管理</NavLink><NavLink end to="/pulses">沸点管理</NavLink><NavLink to="/pulses/featured">精选沸点</NavLink><NavLink to="/articles">文章管理</NavLink><NavLink to="/activities">活动管理</NavLink><NavLink to="/leaderboard">社区排行榜</NavLink><a className="front-link" href="/">访问前台</a></nav><div className="surface admin-panel">
+  return <div className="admin-shell"><header className="site-header admin-header"><div className="header-inner"><Link className="wordmark" to="/"><span className="brand-mark">◇</span>码栈管理后台</Link><div className="account"><span className="nickname">{user.displayName}</span><Button ghost type="primary" onClick={logout}>退出</Button></div></div></header>
+    <main className="admin admin-grid"><AdminNavigation/><div className="surface admin-panel">
       {failure&&<p className="error" role="alert">{failure}</p>}
       <Routes><Route path="/" element={<Navigate to="/articles" replace/>}/><Route path="/login" element={<Navigate to="/articles" replace/>}/><Route path="/articles" element={<ReviewQueue/>}/><Route path="/articles/:id" element={<ReviewArticle/>}/><Route path="/comments" element={<Comments key="articles"/>}/><Route path="/comments/pulses" element={<Comments key="pulses" pulse/>}/><Route path="/pulses" element={<PulseReview key="review"/>}/><Route path="/pulses/featured" element={<PulseReview key="featured" featured/>}/><Route path="/leaderboard" element={<LeaderboardAdmin/>}/><Route path="/activities" element={<ActivityQueue/>}/><Route path="/activities/new" element={<ActivityEditor/>}/><Route path="/activities/:id" element={<ActivityEditor/>}/><Route path="*" element={<Navigate to="/articles" replace/>}/></Routes>
     </div></main></div>;
-}
-function PageSwitch({page,more,update}:{page:number;more:boolean;update:(page:number)=>void}) {
-  return <div className="editor-actions"><button className="subtle" disabled={page===1} onClick={()=>update(page-1)}>上一页</button><button className="subtle" disabled={!more} onClick={()=>update(page+1)}>下一页</button></div>;
 }
 type ArticleAction = 'APPROVE' | 'REJECT' | 'UNLIST' | 'RELIST';
 const articleActionLabel: Record<ArticleAction, string> = {
@@ -263,4 +288,4 @@ function CommentRow({comment,path,scoped,refresh}:{comment:Comment|PulseComment;
     {failure&&<p className="error" role="alert">{failure} <button className="subtle" onClick={()=>void refresh()}>刷新</button></p>}
   </article>;
 }
-createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><SessionProvider><BrowserRouter basename="/admin"><AdminShell/></BrowserRouter></SessionProvider></QueryClientProvider>);
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}><ConfigProvider locale={zhCN} theme={{token:{colorPrimary:"#3154c5",borderRadius:8}}}><SessionProvider><BrowserRouter basename="/admin"><AdminShell/></BrowserRouter></SessionProvider></ConfigProvider></QueryClientProvider>);

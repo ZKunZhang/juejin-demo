@@ -1,3 +1,4 @@
+import { AdminPageSwitch } from './page-switch';
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -23,7 +24,7 @@ export function ActivityQueue() {
     <AdminDateRange applied={range} onApply={value=>{setRange(value);setPage(1);}}/>
     {!result.data?<Pending error={result.error} retry={()=>void result.refetch()}/>:<>{result.data.items.length?
       <ul className="work-list">{result.data.items.map(row=><li key={row.id}><Link to={'/activities/'+row.id}>{row.title}</Link><span className="meta">{labels[row.status]} · 顺序 {row.sortOrder}{row.createdAt?' · '+adminTime(row.createdAt):''}</span></li>)}</ul>:<p className="meta">没有匹配的活动</p>}
-      <div className="editor-actions"><button className="subtle" disabled={page===1} onClick={()=>setPage(page-1)}>上一页</button><button className="subtle" disabled={!result.data.hasMore} onClick={()=>setPage(page+1)}>下一页</button></div></>}
+      <AdminPageSwitch page={page} more={result.data.hasMore} update={setPage}/></>}
   </>;
 }
 export function ActivityEditor() {

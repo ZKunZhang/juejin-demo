@@ -10,7 +10,16 @@ try{
  await page.getByLabel('密码',{exact:true}).fill(process.env.DEMO_ADMIN_PASSWORD);
  await page.getByRole('button',{name:'登录',exact:true}).click();
  await page.waitForURL(base+'/admin/articles');
- await page.goto(base+'/admin/comments');
+ const navigation=page.getByRole('navigation',{name:'管理导航'});
+ await navigation.locator('.ant-menu-item-selected').getByRole('link',{name:'文章管理'}).waitFor();
+ await navigation.getByRole('link',{name:'精选沸点'}).click();
+ await page.waitForURL(base+'/admin/pulses/featured');
+ await navigation.locator('.ant-menu-item-selected').getByRole('link',{name:'精选沸点'}).waitFor();
+ await page.setViewportSize({width:375,height:800});
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.setViewportSize({width:1440,height:900});
+ await navigation.getByRole('link',{name:'评论管理'}).click();
+ await page.waitForURL(base+'/admin/comments');
 
  async function chooseSource(label,path,param,kind) {
    const response=await page.request.get(base+path+'/sources');
@@ -49,7 +58,12 @@ try{
    ['/admin/activities','/api/admin/activities','没有匹配的活动'],
  ]){
    await page.goto(base+pagePath);
+   if(pagePath!=='/admin/comments'){
+     const paging=page.getByRole('navigation',{name:'列表分页'});
+     await paging.getByText('第 1 页',{exact:true}).waitFor();
+     assert(await paging.getByRole('button',{name:'上一页'}).isDisabled());
+   }
    await checkRange(path,empty);
  }
- console.log('Five admin date filters and linked comment source dropdowns passed on 5175');
+ console.log('Admin navigation, first-page controls and five date filters passed');
 }finally{await browser.close();}
