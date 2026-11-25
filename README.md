@@ -40,6 +40,6 @@
 
 构建分别生成 `dist/index.html` 和 `dist/admin/index.html`。前台深链接由网关回退到前者，`/admin/*` 回退到后者，`/api/*` 反向代理到同一 API。HTTPS 部署设置 `NODE_ENV=production`、`APP_ORIGINS` 和正式数据库连接。演示种子仅用于本地库。
 
-活动由管理员在后台「活动管理」配置，首页读取处于展示时间内的已发布活动。当前模块与数据库设计见 [设计文档版本索引](docs/design/README.md)。
+活动由管理员在后台「活动管理」配置，首页读取处于展示时间内的已发布活动。当前模块与数据库设计见 [1.2 模块设计](docs/1.2/README.md)和 [1.1 设计快照](docs/1.1/README.md)。
 
 沸点和课程演示数据可通过 `ENABLE_DEMO_PULSES=true ENABLE_DEMO_COURSES=true npm run db:seed` 初始化。

@@ -17,6 +17,8 @@
 | 活动运营 | [activities.md](./activities.md) |
 | 管理后台及内容治理 | [administration.md](./administration.md) |
 | 数据库实体、约束及迁移 | [database.md](./database.md) |
-| 版本变化及验收 | [changes.md](./changes.md) |
+| 版本变化及验收 | [changes.md](./changes.md)、[模块测试用例](./module-test-cases.md) |
 
 上一版见 [1.1 设计快照](../1.1/README.md)。
+
+后续更新在 `docs/` 下创建下一个版本目录，保留旧版文件。在新版本索引注明新增、变更与沿用的模块。

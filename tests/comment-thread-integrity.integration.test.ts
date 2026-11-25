@@ -54,7 +54,7 @@ test('PostgreSQL keeps article and pulse replies within the same two-level threa
         if (table === 'comments') {
           await tx.$executeRawUnsafe('SAVEPOINT restrict_delete');
           await expect(tx.$executeRawUnsafe('DELETE FROM comments WHERE id = $1::uuid', root))
-            .rejects.toMatchObject({ code: 'P2010', meta: { driverAdapterError: { cause: { originalCode: '23503' } } } });
+            .rejects.toMatchObject({ code: 'P2010', meta: { driverAdapterError: { cause: { originalCode: '23001' } } } });
           await tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT restrict_delete');
         } else {
           expect(await tx.$executeRawUnsafe('DELETE FROM pulse_comments WHERE id = $1::uuid', root)).toBe(1);

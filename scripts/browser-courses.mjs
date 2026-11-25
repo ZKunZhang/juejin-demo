@@ -33,6 +33,8 @@ try {
   await page.getByRole('button', { name: '目录', exact: true }).click();
   await expect(page.getByRole('list', { name: '章节列表' })).toBeVisible();
   await page.goBack();
+  await expect(page.getByRole('heading', { name: '小册介绍' })).toBeVisible();
+  await page.goBack();
   await expect(page).toHaveURL(filteredUrl);
   await list.getByRole('link').first().click();
   await page.getByRole('link', { name: '开始阅读' }).click();

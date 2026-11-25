@@ -12,7 +12,7 @@
 | 课程章节 | `/courses/:id/lessons/:lessonId` 的正文下方 | 章节独立评论、发表和刷新 |
 | 管理后台 | `/admin/comments`、`/admin/comments/pulses` | 分类型筛选、来源搜索、隐藏和恢复 |
 
-前台使用 `CommentSection` 管理列表、输入、登录引导、点赞和回复。`CommentMessage` 统一作者、时间和正文的展示，后台评论管理也复用该展示。评论正文作为文本渲染，保留换行，长内容允许换行。组件通过 `useId` 为输入和计数生成关联 ID，多个沸点同时展开时各自维护草稿。[共享组件](../../../apps/web/comments.tsx) · [评论样式](../../../apps/web/comments.css)
+前台使用 `CommentSection` 管理列表、输入、登录引导、点赞和回复。`CommentMessage` 统一作者、时间和正文的展示，后台评论管理也复用该展示。评论正文作为文本渲染，保留换行，长内容允许换行。组件通过 `useId` 为输入和计数生成关联 ID，多个沸点同时展开时各自维护草稿。[共享组件](../../apps/web/comments.tsx) · [评论样式](../../apps/web/comments.css)
 
 ## 数据模型
 
@@ -26,15 +26,15 @@
 | `pulse_comment_reviews` | 评论、管理员、前后状态、原因、时间 | 沸点评论审核的追加日志 |
 | `course_lesson_comments` | `id`、`lesson_id`、`author_id`、`body`、`created_at` | 章节与作者外键，按章节独立查询 |
 
-文章、沸点评论状态使用 `VISIBLE / HIDDEN`。章节评论当前模型保存正文和归属，文章与沸点评论的状态审核流程有独立数据表。点赞数从点赞关系聚合，响应中的 `liked` 由当前会话对应的点赞关系计算。[Prisma 模型](../../../prisma/schema.prisma)
+文章、沸点评论状态使用 `VISIBLE / HIDDEN`。章节评论当前模型保存正文和归属，文章与沸点评论的状态审核流程有独立数据表。点赞数从点赞关系聚合，响应中的 `liked` 由当前会话对应的点赞关系计算。[Prisma 模型](../../prisma/schema.prisma)
 
 ### 两级结构在数据库中的保证
 
 迁移 `202611250020_comment_thread_integrity` 为文章和沸点评论安装触发器。插入回复时，父级必须存在、属于同一内容且为一级评论。触发器拒绝自身作为父级。评论建立后，`id`、内容归属字段和 `parent_id` 固定，正文和审核状态仍可更新。
 
-安装规则时，迁移先锁定两张评论表，再核查既有跨内容和三级结构。发现异常时迁移报错并回滚，由维护者核对异常来源。可见性在接口事务中检查，隐藏根评论会影响其回复的公开展示。[约束迁移](../../../prisma/migrations/202611250020_comment_thread_integrity/migration.sql)
+安装规则时，迁移先锁定两张评论表，再核查既有跨内容和三级结构。发现异常时迁移报错并回滚，由维护者核对异常来源。可见性在接口事务中检查，隐藏根评论会影响其回复的公开展示。[约束迁移](../../prisma/migrations/202611250020_comment_thread_integrity/migration.sql)
 
-文章父子关系保留 `ON DELETE RESTRICT`，沸点父子关系使用 `ON DELETE CASCADE`。因此文章评论清理需要先处理回复，沸点删除会按外键级联清理对应评论及点赞。常规审核以状态变更保留内容和日志。[文章回复迁移](../../../prisma/migrations/202611250006_comment_replies/migration.sql) · [沸点回复迁移](../../../prisma/migrations/202611250016_pulse_comment_threads/migration.sql)
+文章父子关系保留 `ON DELETE RESTRICT`，沸点父子关系使用 `ON DELETE CASCADE`。因此文章评论清理需要先处理回复，沸点删除会按外键级联清理对应评论及点赞。常规审核以状态变更保留内容和日志。[文章回复迁移](../../prisma/migrations/202611250006_comment_replies/migration.sql) · [沸点回复迁移](../../prisma/migrations/202611250016_pulse_comment_threads/migration.sql)
 
 ## 公开读取和排序
 
@@ -42,7 +42,7 @@
 
 `GET /api/articles/:id/comments` 先确认文章已发布，返回最近 100 条可见一级评论。每条带最近 20 条可见回复，根评论和回复都以时间正序返回。字段包含 `id`、`body`、`createdAt`、`parentId`、`author`、`liked`、`likeCount` 和 `replies`。响应设置 `Cache-Control: private, no-store`。
 
-文章组件在这批数据内排序。「最热」依次比较点赞数、已加载回复数和创建时间，均为降序。「最新」按创建时间降序。因根评论和回复均有读取上限，最热结果的候选范围是已加载的最近 100 条，回复参与排序的数量是已加载的最多 20 条。[文章评论接口](../../../apps/api/interactions.ts) · [排序组件](../../../apps/web/comments.tsx)
+文章组件在这批数据内排序。「最热」依次比较点赞数、已加载回复数和创建时间，均为降序。「最新」按创建时间降序。因根评论和回复均有读取上限，最热结果的候选范围是已加载的最近 100 条，回复参与排序的数量是已加载的最多 20 条。[文章评论接口](../../apps/api/interactions.ts) · [排序组件](../../apps/web/comments.tsx)
 
 ### 沸点评论
 
@@ -54,11 +54,11 @@
 | `page=1&sort=latest` | 按创建时间、ID 降序读取，同样取 21 条 |
 | 省略分页和排序 | 最近 100 条一级评论，返回时间正序，用于兼容现有调用 |
 
-每条根评论附带最近 20 条可见回复，回复按时间正序展示。预览区域仅显示前三条根评论，详情显示每页前 20 条。回复默认展示前两条，可展开当前已加载的回复。切换最热或最新时页码重置为 1。成功发评后刷新评论和所属内容统计。[沸点接口](../../../apps/api/pulses.ts) · [前台调用](../../../apps/web/pulses.tsx)
+每条根评论附带最近 20 条可见回复，回复按时间正序展示。预览区域仅显示前三条根评论，详情显示每页前 20 条。回复默认展示前两条，可展开当前已加载的回复。切换最热或最新时页码重置为 1。成功发评后刷新评论和所属内容统计。[沸点接口](../../apps/api/pulses.ts) · [前台调用](../../apps/web/pulses.tsx)
 
 ### 课程章节评论
 
-`GET /api/courses/:id/lessons/:lessonId/comments` 同时检查课程、章节已发布以及章节归属。返回最近 100 条评论并按时间正序展示。章节评论使用共享组件的基础模式，当前展示单层评论。[课程接口](../../../apps/api/courses.ts) · [章节正文入口](../../../apps/web/courses.tsx)
+`GET /api/courses/:id/lessons/:lessonId/comments` 同时检查课程、章节已发布以及章节归属。返回最近 100 条评论并按时间正序展示。章节评论使用共享组件的基础模式，当前展示单层评论。[课程接口](../../apps/api/courses.ts) · [章节正文入口](../../apps/web/courses.tsx)
 
 ## 写入接口和权限
 
@@ -70,9 +70,9 @@
 | `PUT /api/articles/:id/comments/:commentId/like` | `active` 布尔值 | `liked` 和服务端 `likeCount` |
 | `PUT /api/pulses/:id/comments/:commentId/like` | `active` 布尔值 | `liked` 和服务端 `likeCount` |
 
-所有写入使用会话识别作者，并通过来源和 CSRF 校验。正文要求 1–2000 个字符且包含非空白字符，入库前去掉首尾空白。请求体额外传入作者字段会触发结构校验。创建评论时在事务中锁定公开内容，创建回复时再锁定同内容的可见一级评论。本人和其他用户都可以回复根评论，回复二级内容时仍写入同一个根评论 ID。[写保护和错误格式](../../../apps/api/app.ts) · [会话权限](../../../apps/api/security.ts)
+所有写入使用会话识别作者，并通过来源和 CSRF 校验。正文要求 1–2000 个字符且包含非空白字符，入库前去掉首尾空白。请求体额外传入作者字段会触发结构校验。创建评论时在事务中锁定公开内容，创建回复时再锁定同内容的可见一级评论。本人和其他用户都可以回复根评论，回复二级内容时仍写入同一个根评论 ID。[写保护和错误格式](../../apps/api/app.ts) · [会话权限](../../apps/api/security.ts)
 
-点赞和取消都检查评论所属内容、评论及父级可见状态。重复激活由组合主键去重。接口返回服务端计算结果后，组件更新当前评论并使同一路径的查询失效。[文章点赞](../../../apps/api/interactions.ts) · [沸点点赞](../../../apps/api/pulses.ts)
+点赞和取消都检查评论所属内容、评论及父级可见状态。重复激活由组合主键去重。接口返回服务端计算结果后，组件更新当前评论并使同一路径的查询失效。[文章点赞](../../apps/api/interactions.ts) · [沸点点赞](../../apps/api/pulses.ts)
 
 ## 交互和错误反馈
 
@@ -86,7 +86,7 @@
 
 文章和沸点评论各自使用列表与状态接口。列表默认每页 30 条，可按状态、内容来源、关键词和创建时间范围筛选。文章评论来源查询使用 `/api/admin/comments/sources`，沸点使用 `/api/admin/pulse-comments/sources`。
 
-`PATCH /api/admin/comments/:id/status` 与 `PATCH /api/admin/pulse-comments/:id/status` 接受 `expectedStatus`、`status` 和可选 `reason`。隐藏必须填原因。更新条件携带旧状态，旧状态冲突返回 `409`，成功更新与追加日志在同一事务提交。普通用户调用后台接口返回 `403`。[文章评论管理](../../../apps/api/moderation.ts) · [沸点评论管理](../../../apps/api/pulse-moderation.ts) · [后台界面](../../../apps/admin/main.tsx)
+`PATCH /api/admin/comments/:id/status` 与 `PATCH /api/admin/pulse-comments/:id/status` 接受 `expectedStatus`、`status` 和可选 `reason`。隐藏必须填原因。更新条件携带旧状态，旧状态冲突返回 `409`，成功更新与追加日志在同一事务提交。普通用户调用后台接口返回 `403`。[文章评论管理](../../apps/api/moderation.ts) · [沸点评论管理](../../apps/api/pulse-moderation.ts) · [后台界面](../../apps/admin/main.tsx)
 
 ## 验收清单
 
@@ -102,7 +102,7 @@
 | 多个沸点评论区同时展开 | 输入标签 ID 唯一，草稿相互独立 |
 | 390px 和 320px | 评论正文、输入和操作区可用，页面无横向溢出 |
 
-可执行验收入口为文章社区、沸点和课程浏览器脚本，以及章节评论接口测试。本设计引用测试覆盖范围，执行结果应写入本版本的验收记录。[社区脚本](../../../scripts/browser-community.mjs) · [沸点脚本](../../../scripts/browser-pulses.mjs) · [课程脚本](../../../scripts/browser-courses.mjs) · [章节接口测试](../../../tests/course-comments.integration.test.ts)
+可执行验收入口为文章社区、沸点和课程浏览器脚本，以及章节评论接口测试。本设计引用测试覆盖范围，执行结果应写入本版本的验收记录。[社区脚本](../../scripts/browser-community.mjs) · [沸点脚本](../../scripts/browser-pulses.mjs) · [课程脚本](../../scripts/browser-courses.mjs) · [章节接口测试](../../tests/course-comments.integration.test.ts)
 
 ## 1.1 到 1.2 的补充
 
