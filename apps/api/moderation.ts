@@ -1,3 +1,4 @@
+import { notifyFollowers } from './notifications';
 import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
 import type { PrismaClient } from '../../generated/prisma/client';
 import { ApiError, security } from './security';
@@ -38,6 +39,9 @@ export function registerModeration(app:FastifyInstance,db:PrismaClient,auth:Retu
       if (!updated.count) throw conflict();
       await tx.articleReview.create({data:{articleId:id,actorId,articleVersion:version,
         action,fromStatus:row.status,toStatus:rule.to,fromReviewStatus:row.reviewStatus,toReviewStatus:rule.next,reason}});
+      if(action==='APPROVE'&&!row.publishedAt) {
+        await notifyFollowers(tx,{actorId:row.authorId,targetId:id,kind:'ARTICLE_PUBLISHED',content:row.title});
+      }
       return tx.article.findUniqueOrThrow({where:{id},select:draftSelect});
     });
   }

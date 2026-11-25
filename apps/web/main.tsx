@@ -8,6 +8,7 @@ import { api } from './api';
 import { CoursePage, Courses, LessonPage } from './courses';
 import { PulseLeaderboard, Pulses } from './pulses';
 import { MyRelations } from './interactions';
+import { NotificationBell, Notifications } from './notifications';
 import { CreatorDashboard, CreatorMenu } from './creator';
 import { ArticlePage, Creator, Editor, Home } from './articles';
 import './styles.css';
@@ -33,6 +34,7 @@ function Header({ location }: { location: Location }) {
     <CreatorMenu/>
     <div className="account">
       {loading ? <span role="status">加载中…</span> : error ? <button className="subtle" onClick={retry}>重试会话</button> : user ? <>
+        <NotificationBell userId={user.id}/>
         <Link className="profile-link" to="/me" aria-current={location.pathname === '/me' ? 'page' : undefined}>
           <span className="avatar" aria-hidden="true">{Array.from(user.displayName)[0]}</span>
           <span className="nickname">{user.displayName}</span>
@@ -92,6 +94,7 @@ function WebRoutes() {
     <Route path="/pulses" element={<Pulses/>}/>
     <Route path="/pulses/leaderboard" element={<PulseLeaderboard/>}/>
     <Route path="/articles/:id" element={<ArticlePage/>}/>
+    <Route path="/notifications" element={<Notifications/>}/>
     <Route path="/creator" element={<CreatorDashboard/>}/>
     <Route path="/creator/articles" element={<Creator/>}/>
     <Route path="/creator/articles/new" element={<Editor/>}/>

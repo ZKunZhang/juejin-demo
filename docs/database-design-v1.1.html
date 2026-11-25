@@ -27,7 +27,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <p>先验证用户注册与登录，再跑通文章发布、列表和详情，随后接入独立管理后台。前台和后台使用 React，共用 Node.js API 和 PostgreSQL，数据访问与版本化迁移使用 Prisma。</p>
 <div class="pills"><span>Node.js</span><span>Prisma ORM</span><span>PostgreSQL</span><span>React 前台</span><span>React 管理后台</span></div>
 </div></header>
-<nav aria-label="文档目录"><a href="#sequence">实施顺序</a><a href="#accounts">账号与会话</a><a href="#articles">文章与标签</a><a href="#community">互动与管理</a><a href="#content-expansion">沸点与课程</a><a href="#activities">社区活动</a><a href="#state">状态迁移</a><a href="#access">接口权限</a><a href="#migration">索引与迁移</a></nav>
+<nav aria-label="文档目录"><a href="#sequence">实施顺序</a><a href="#accounts">账号与会话</a><a href="#articles">文章与标签</a><a href="#community">互动与管理</a><a href="#content-expansion">沸点与课程</a><a href="#activities">社区活动</a><a href="#notifications">站内通知</a><a href="#state">状态迁移</a><a href="#access">接口权限</a><a href="#migration">索引与迁移</a></nav>
 <main>
 <section id="sequence">
 <h2>实施顺序</h2>
@@ -115,6 +115,16 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <li>索引为 <code>activities(status, sort_order, id)</code>。迁移 <code>202611250005_activities</code> 添加字段、外键及展示时间、顺序、内容检查约束。</li>
 <li>公开 <code>GET /api/activities</code> 最多返回 5 条，只返回 ID、标题、摘要、链接及封面。</li>
 <li>后台 <code>GET/POST /api/admin/activities</code> 列出或创建活动，<code>GET/PATCH /api/admin/activities/:id</code> 读取或更新。写入使用参数校验、会话、角色和 CSRF 检查。</li>
+</ul>
+</section>
+
+<section id="notifications">
+<h2>站内通知</h2>
+<p><code>notifications</code> 保存收件人、作者、通知类型、目标 ID、内容摘要、创建时间和已读时间。分类为文章发布、沸点发布。收件人加通知类型和目标 ID 唯一，收件人外键和作者外键指向本地账号。内容目标随类型跳转，历史通知保留在消息页。</p>
+<ul>
+<li>首次审批公开后，发布事务内按当时的已提交关注关系生成通知。下架再审核不补发，取关后保留历史记录。</li>
+<li>未读统计和历史列表只对收件人可用。历史按创建时间和 ID 游标分页，允许按类型查询和标为已读。</li>
+<li>浏览器前台每 15 秒查询未读数。铃铛和分类读取真实计数。</li>
 </ul>
 </section>
 
