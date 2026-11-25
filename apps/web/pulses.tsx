@@ -5,6 +5,7 @@ import { api } from './api';
 import { useSession } from './session';
 import { Pending, type Tag } from './articles';
 import './pulses.css';
+import './leaderboard.css';
 
 type Pulse={id:string;body:string;images:string[];featured:boolean;createdAt:string;author:{id:string;displayName:string;avatarUrl:string|null};tags:{tag:Tag}[];_count:{likes:number};liked:boolean;following:boolean};
 type Topic=Tag&{_count:{pulses:number}};
@@ -13,15 +14,56 @@ const labels={following:'关注',recommended:'推荐',latest:'最新'} as const;
 type Tab=keyof typeof labels;
 
 export function PulseLeaderboard() {
+  const {user}=useSession();
+  const location=useLocation();
+  const [shareStatus,setShareStatus]=useState('');
   const query=useQuery({queryKey:['pulse-leaderboard'],queryFn:({signal})=>api<RankedAuthor[]>('/api/pulses/leaderboard','GET',undefined,signal)});
-  return <main className="surface work pulse-leaderboard">
-    <Link to="/pulses">返回沸点</Link>
-    <h1>社区排行榜</h1>
-    <p className="meta">按已发布沸点的获赞数排序，获赞数相同时按发布数排序。</p>
-    {!query.data?<Pending error={query.error} retry={()=>void query.refetch()}/>:query.data.length?
-      <ol className="pulse-ranking">{query.data.map(author=><li key={author.id}>
-        <strong>{author.displayName}</strong><span className="meta">{author.pulses} 条沸点 · {author.likes} 赞</span>
-      </li>)}</ol>:<p className="work-message meta">暂无排行</p>}
+  const myRank=user?query.data?.findIndex(author=>author.id===user.id):-1;
+  async function share() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareStatus('链接已复制');
+    } catch {
+      setShareStatus('无法复制，可从地址栏复制链接');
+    }
+  }
+  return <main className="leaderboard-layout">
+    <aside className="surface leaderboard-sidebar">
+      <div className="leaderboard-identity">
+        <span className="leaderboard-avatar" aria-hidden="true">{user?Array.from(user.displayName)[0]:'◇'}</span>
+        <strong>{user?.displayName||'游客'}</strong>
+        {!user&&<Link to="/login?next=/pulses/leaderboard" state={{background:location}}>登录查看我的排名</Link>}
+      </div>
+      <nav aria-label="沸点社区">
+        <Link to="/pulses">沸点首页</Link>
+        <Link to="/pulses/leaderboard" aria-current="page">社区排行榜</Link>
+      </nav>
+    </aside>
+    <section className="surface leaderboard-board" aria-labelledby="leaderboard-title">
+      <header className="leaderboard-heading">
+        <div>
+          <h1 id="leaderboard-title">社区排行榜</h1>
+          <p>按已发布沸点的获赞数排序，同分时按发布量排序。</p>
+        </div>
+        <button className="subtle leaderboard-share" type="button" onClick={share}>分享链接</button>
+      </header>
+      {shareStatus&&<p className="meta leaderboard-share-status" role="status">{shareStatus}</p>}
+      <div className="leaderboard-section-heading">
+        <h2>沸点人气榜</h2>
+        {user&&query.data&&<span className="leaderboard-personal">我的排名 <strong>{typeof myRank==='number'&&myRank>=0?'第 '+(myRank+1)+' 名':'未上榜'}</strong></span>}
+      </div>
+      {!query.data?<Pending error={query.error} retry={()=>void query.refetch()}/>:query.data.length?
+        <div className="leaderboard-table-frame">
+          <table className="leaderboard-table" aria-label="沸点人气榜">
+            <thead><tr><th scope="col">排名</th><th scope="col">用户</th><th scope="col">发布</th><th scope="col">获赞</th></tr></thead>
+            <tbody>{query.data.map((author,index)=><tr key={author.id} data-rank={index+1} className={author.id===user?.id?'leaderboard-self':undefined}>
+              <td><span className="leaderboard-rank">{index+1}</span></td>
+              <th scope="row"><div className="leaderboard-author"><span className="leaderboard-avatar" aria-hidden="true">{Array.from(author.displayName)[0]}</span><span>{author.displayName}</span></div></th>
+              <td>{author.pulses.toLocaleString('zh-CN')}</td><td>{author.likes.toLocaleString('zh-CN')}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>:<p className="work-message meta">暂无排行</p>}
+    </section>
   </main>;
 }
 
