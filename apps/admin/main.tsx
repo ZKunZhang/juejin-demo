@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Link, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ActivityEditor, ActivityQueue } from './activities';
 import { api } from '../web/api';
 import { AuthPage } from '../web/auth-page';
 import { SessionProvider, useSession } from '../web/session';
@@ -24,9 +25,9 @@ function AdminShell() {
   if(!user)return <Routes><Route path="/login" element={<AuthPage admin/>}/><Route path="*" element={<Navigate to="/login" replace/>}/></Routes>;
   if(user.role!=='ADMIN')return <main className="surface work"><h1>没有后台访问权限</h1><button className="subtle" onClick={logout}>退出并换账号</button>{failure&&<p className="error" role="alert">{failure}</p>}</main>;
   return <><header className="site-header"><div className="header-inner"><Link className="wordmark" to="/"><span className="brand-mark">◇</span>码栈管理后台</Link><div className="account"><span className="nickname">{user.displayName}</span><button className="subtle" onClick={logout}>退出</button></div></div></header>
-    <main className="admin admin-grid"><nav className="surface side" aria-label="管理导航"><Link to="/articles">文章审核</Link><Link to="/comments">评论管理</Link><a href="/">访问前台</a></nav><div className="surface admin-panel">
+    <main className="admin admin-grid"><nav className="surface side" aria-label="管理导航"><Link to="/articles">文章审核</Link><Link to="/comments">评论管理</Link><Link to="/activities">活动管理</Link><a href="/">访问前台</a></nav><div className="surface admin-panel">
       {failure&&<p className="error" role="alert">{failure}</p>}
-      <Routes><Route path="/" element={<Navigate to="/articles" replace/>}/><Route path="/login" element={<Navigate to="/articles" replace/>}/><Route path="/articles" element={<ReviewQueue/>}/><Route path="/articles/:id" element={<ReviewArticle/>}/><Route path="/comments" element={<Comments/>}/><Route path="*" element={<Navigate to="/articles" replace/>}/></Routes>
+      <Routes><Route path="/" element={<Navigate to="/articles" replace/>}/><Route path="/login" element={<Navigate to="/articles" replace/>}/><Route path="/articles" element={<ReviewQueue/>}/><Route path="/articles/:id" element={<ReviewArticle/>}/><Route path="/comments" element={<Comments/>}/><Route path="/activities" element={<ActivityQueue/>}/><Route path="/activities/new" element={<ActivityEditor/>}/><Route path="/activities/:id" element={<ActivityEditor/>}/><Route path="*" element={<Navigate to="/articles" replace/>}/></Routes>
     </div></main></>;
 }
 function PageSwitch({page,more,update}:{page:number;more:boolean;update:(page:number)=>void}) {

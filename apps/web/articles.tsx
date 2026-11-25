@@ -20,6 +20,17 @@ export function Pending({error,retry}: {error:Error|null;retry:()=>void}) {
   return error ? <p className="error work-message" role="alert">{error.message} <button className="subtle" onClick={retry}>重试</button></p> : <p className="work-message meta" role="status">加载中…</p>;
 }
 function useTags() { return useQuery({queryKey:['tags'],queryFn:({signal})=>api<Tag[]>('/api/tags','GET',undefined,signal)}); }
+type PublicActivity={id:string;title:string;summary:string;url:string|null};
+function ActivitySidebar() {
+  const query=useQuery({queryKey:['activities'],queryFn:({signal})=>api<PublicActivity[]>('/api/activities','GET',undefined,signal)});
+  return <aside className="surface side"><h2>社区活动</h2>
+    {!query.data?<Pending error={query.error} retry={()=>void query.refetch()}/>:query.data.length?
+      <ul className="activity-list">{query.data.map(item=><li key={item.id}>
+        {item.url?<a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>:<strong>{item.title}</strong>}
+        <p>{item.summary}</p>
+      </li>)}</ul>:<p>暂无活动</p>}
+  </aside>;
+}
 export function Home() {
   const tags=useTags();
   const [params,setParams]=useSearchParams();
@@ -46,7 +57,7 @@ export function Home() {
     </article>) : <div className="empty"><p>{word||filter?'没有匹配的文章':'暂无公开文章'}</p>{(word||filter)&&<button className="subtle" onClick={()=>setParams(new URLSearchParams())}>清除筛选</button>}</div>}
     {data?.nextCursor&&<button className="subtle pager" onClick={()=>{query.set('cursor',data.nextCursor!);setParams(query);window.scrollTo(0,0);}}>下一页</button>}
     </section>
-    <aside className="surface side"><h2>社区活动</h2><p>暂无活动</p></aside>
+    <ActivitySidebar/>
   </main>;
 }
 export function ArticlePage() {

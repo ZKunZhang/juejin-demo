@@ -38,6 +38,7 @@ model User {
   bookmarks    ArticleBookmark[]
   following    UserFollow[] @relation("Follower")
   followers    UserFollow[] @relation("Followee")
+  activities   Activity[]
 
   @@map("users")
 }
@@ -215,4 +216,29 @@ model UserFollow {
   @@id([followerId, followeeId])
   @@index([followeeId, followerId])
   @@map("user_follows")
+}
+
+enum ActivityStatus {
+  DRAFT
+  PUBLISHED
+  UNLISTED
+}
+
+model Activity {
+  id          String         @id @default(uuid()) @db.Uuid
+  editorId    String         @map("editor_id") @db.Uuid
+  title       String         @db.VarChar(120)
+  summary     String         @db.VarChar(300)
+  url         String?
+  status      ActivityStatus @default(DRAFT)
+  sortOrder   Int            @default(0) @map("sort_order")
+  visibleFrom DateTime?      @map("visible_from") @db.Timestamptz(3)
+  visibleTo   DateTime?      @map("visible_to") @db.Timestamptz(3)
+  version     Int            @default(1)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  editor      User           @relation(fields: [editorId], references: [id])
+
+  @@index([status, sortOrder, id])
+  @@map("activities")
 }
