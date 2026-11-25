@@ -1,0 +1,52 @@
+{
+  "name": "mazhan-community",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "api": "tsx --env-file-if-exists=.env apps/api/start.ts",
+    "build": "vite build",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx --env-file-if-exists=.env apps/api/seed.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "test:browser:auth": "node --env-file-if-exists=.env scripts/browser-auth.mjs",
+    "db:local": "node scripts/local-postgres.mjs"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.5",
+    "@fastify/csrf-protection": "7.1.0",
+    "@fastify/rate-limit": "10.3.0",
+    "@fastify/swagger": "9.9.5",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "@tanstack/react-query": "5.108.4",
+    "argon2": "0.45.2",
+    "dotenv": "18.0.10",
+    "fastify": "5.12.8",
+    "pg": "8.23.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-hook-form": "7.92.0",
+    "react-markdown": "10.1.0",
+    "react-router-dom": "7.18.7",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.1",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "embedded-postgres": "18.4.0-beta.17",
+    "prisma": "7.10.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.1"
+  }
+}

@@ -1,0 +1,10 @@
+data/
+.DS_Store
+node_modules/
+dist/
+generated/
+.env
+playwright-report/
+test-results/
+
+docs/local-login.md
