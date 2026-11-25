@@ -23,3 +23,12 @@
 .pulse-recommendations{list-style:none}
 .pulse-recommendations button{display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px;text-align:start;white-space:normal}
 .pulse-recommendations button[aria-pressed=true]{background:var(--selected)}
+
+.pulse-leaderboard-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: var(--line);
+}
+.pulse-leaderboard .pulse-ranking li { border-bottom: 1px solid var(--line); }
+.pulse-leaderboard .pulse-ranking li .meta { float: none; }

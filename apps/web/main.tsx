@@ -6,7 +6,7 @@ import { AuthPage, safeReturn } from './auth-page';
 import { SessionProvider, useSession } from './session';
 import { api } from './api';
 import { CoursePage, Courses, LessonPage } from './courses';
-import { Pulses } from './pulses';
+import { PulseLeaderboard, Pulses } from './pulses';
 import { MyRelations } from './interactions';
 import { ArticlePage, Creator, Editor, Home } from './articles';
 import './styles.css';
@@ -88,6 +88,7 @@ function WebRoutes() {
     <Route path="/courses/:id" element={<CoursePage/>}/>
     <Route path="/courses/:id/lessons/:lessonId" element={<LessonPage/>}/>
     <Route path="/pulses" element={<Pulses/>}/>
+    <Route path="/pulses/leaderboard" element={<PulseLeaderboard/>}/>
     <Route path="/articles/:id" element={<ArticlePage/>}/>
     <Route path="/creator/articles" element={<Creator/>}/>
     <Route path="/creator/articles/new" element={<Editor/>}/>

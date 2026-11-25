@@ -12,6 +12,19 @@ type RankedAuthor={id:string;displayName:string;likes:number;pulses:number};
 const labels={following:'关注',recommended:'推荐',latest:'最新'} as const;
 type Tab=keyof typeof labels;
 
+export function PulseLeaderboard() {
+  const query=useQuery({queryKey:['pulse-leaderboard'],queryFn:({signal})=>api<RankedAuthor[]>('/api/pulses/leaderboard','GET',undefined,signal)});
+  return <main className="surface work pulse-leaderboard">
+    <Link to="/pulses">返回沸点</Link>
+    <h1>社区排行榜</h1>
+    <p className="meta">按已发布沸点的获赞数排序，获赞数相同时按发布数排序。</p>
+    {!query.data?<Pending error={query.error} retry={()=>void query.refetch()}/>:query.data.length?
+      <ol className="pulse-ranking">{query.data.map(author=><li key={author.id}>
+        <strong>{author.displayName}</strong><span className="meta">{author.pulses} 条沸点 · {author.likes} 赞</span>
+      </li>)}</ol>:<p className="work-message meta">暂无排行</p>}
+  </main>;
+}
+
 export function Pulses() {
   const {user}=useSession();
   const location=useLocation();
@@ -26,7 +39,6 @@ export function Pulses() {
   const [failure,setFailure]=useState('');
   const [publishing,setPublishing]=useState(false);
   const tags=useQuery({queryKey:['pulse-topics'],queryFn:({signal})=>api<Topic[]>('/api/pulses/topics','GET',undefined,signal)});
-  const leaderboard=useQuery({queryKey:['pulse-leaderboard'],queryFn:({signal})=>api<RankedAuthor[]>('/api/pulses/leaderboard','GET',undefined,signal)});
   const recommendedTopics=tags.data?.filter(item=>item._count.pulses>0).sort((a,b)=>b._count.pulses-a._count.pulses).slice(0,5);
   const feed=useQuery({queryKey:['pulses',tab,tag,user?.id],enabled:tab!=='following'||!!user,queryFn:({signal})=>api<Pulse[]>('/api/pulses?'+new URLSearchParams({tab,...(tag?{tagId:tag}:{})}),'GET',undefined,signal)});
   const featured=useQuery({queryKey:['featured-pulses',user?.id],queryFn:({signal})=>api<Pulse[]>('/api/pulses?tab=featured','GET',undefined,signal)});
@@ -46,11 +58,7 @@ export function Pulses() {
   }
   return <main className="home-grid pulse-layout">
     <aside className="pulse-left"><section className="surface filter"><h2>沸点话题</h2><button className="subtle" aria-pressed={!tag} onClick={()=>select('tagId','')}>全部</button>{tags.data?.map(item=><button className="subtle" key={item.id} aria-pressed={tag===item.id} onClick={()=>select('tagId',item.id)}>{item.name}</button>)}</section>
-      <section className="surface side" aria-labelledby="pulse-leaderboard-title">
-        <h2 id="pulse-leaderboard-title">社区排行榜</h2>
-        {!leaderboard.data?<Pending error={leaderboard.error} retry={()=>void leaderboard.refetch()}/>:leaderboard.data.length?
-          <ol className="pulse-ranking">{leaderboard.data.map(author=><li key={author.id}><span>{author.displayName}</span><span className="meta">{author.likes} 赞</span></li>)}</ol>:<p>暂无排行</p>}
-      </section>
+      <Link className="surface subtle pulse-leaderboard-link" to="/pulses/leaderboard">社区排行榜</Link>
     </aside>
     <div className="pulse-main">
       <section className="surface pulse-compose"><h1>发布沸点</h1>
