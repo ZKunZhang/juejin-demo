@@ -55,6 +55,8 @@ model User {
   projects     Project[]
   projectLikes ProjectLike[]
   projectReviews ProjectReview[]
+  aiUsageSources AiUsageSource[]
+  aiUsagePreference AiUsagePreference?
 
   @@map("users")
 }
@@ -676,4 +678,110 @@ model ProjectReview {
   @@unique([projectId, version])
   @@index([actorId, createdAt])
   @@map("project_reviews")
+}
+
+model AiProvider {
+  id     String    @id @default(uuid()) @db.Uuid
+  slug   String    @unique @db.VarChar(64)
+  name   String    @db.VarChar(120)
+  models AiModel[]
+
+  @@map("ai_providers")
+}
+
+/// 各供应商提供的模型目录及启用状态。
+model AiModel {
+  id         String         @id @default(uuid()) @db.Uuid
+  providerId String         @map("provider_id") @db.Uuid
+  modelKey   String         @map("model_key") @db.VarChar(160)
+  name       String         @db.VarChar(160)
+  active     Boolean        @default(true)
+  provider   AiProvider     @relation(fields: [providerId], references: [id])
+  prices     AiModelPrice[]
+  events     AiUsageEvent[]
+
+  @@unique([providerId, modelKey])
+  @@map("ai_models")
+}
+
+/// 产生 AI 用量的客户端和开发工具目录。
+model AiTool {
+  id      String          @id @default(uuid()) @db.Uuid
+  slug    String          @unique @db.VarChar(64)
+  name    String          @db.VarChar(120)
+  sources AiUsageSource[]
+
+  @@map("ai_tools")
+}
+
+/// 按模型、币种和生效区间维护的历史计价记录。
+model AiModelPrice {
+  id              String         @id @default(uuid()) @db.Uuid
+  modelId         String         @map("model_id") @db.Uuid
+  currency        String         @db.VarChar(3)
+  effectiveFrom   DateTime       @map("effective_from") @db.Timestamptz(3)
+  effectiveTo     DateTime?      @map("effective_to") @db.Timestamptz(3)
+  inputPrice      Decimal        @map("input_price") @db.Decimal(20, 8)
+  outputPrice     Decimal        @map("output_price") @db.Decimal(20, 8)
+  cacheReadPrice  Decimal?       @map("cache_read_price") @db.Decimal(20, 8)
+  cacheWritePrice Decimal?       @map("cache_write_price") @db.Decimal(20, 8)
+  sourceUrl       String         @map("source_url") @db.VarChar(2000)
+  observedAt      DateTime       @map("observed_at") @db.Timestamptz(3)
+  model           AiModel        @relation(fields: [modelId], references: [id])
+  events          AiUsageEvent[]
+
+  @@index([modelId, currency, effectiveFrom])
+  @@map("ai_model_prices")
+}
+
+/// 用户授权的用量导入来源及其撤销状态。
+model AiUsageSource {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  toolId    String         @map("tool_id") @db.Uuid
+  label     String         @db.VarChar(120)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt DateTime?      @map("revoked_at") @db.Timestamptz(3)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tool      AiTool         @relation(fields: [toolId], references: [id])
+  events    AiUsageEvent[]
+
+  @@index([userId, createdAt, id])
+  @@index([toolId])
+  @@map("ai_usage_sources")
+}
+
+/// 按来源幂等登记的 Token 用量与费用估算记录。
+model AiUsageEvent {
+  id                      String        @id @default(uuid()) @db.Uuid
+  sourceId                String        @map("source_id") @db.Uuid
+  sourceEventKey          String        @map("source_event_key") @db.VarChar(160)
+  modelId                 String        @map("model_id") @db.Uuid
+  occurredAt              DateTime      @map("occurred_at") @db.Timestamptz(3)
+  inputTokens             BigInt        @map("input_tokens")
+  unclassifiedInputTokens BigInt        @map("unclassified_input_tokens")
+  outputTokens            BigInt        @map("output_tokens")
+  cacheReadTokens         BigInt        @map("cache_read_tokens")
+  cacheWriteTokens        BigInt        @map("cache_write_tokens")
+  priceId                 String?       @map("price_id") @db.Uuid
+  estimatedCostUsd        Decimal?      @map("estimated_cost_usd") @db.Decimal(24, 10)
+  source                  AiUsageSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  model                   AiModel       @relation(fields: [modelId], references: [id])
+  price                   AiModelPrice? @relation(fields: [priceId], references: [id], onDelete: Restrict)
+
+  @@unique([sourceId, sourceEventKey])
+  @@index([sourceId, occurredAt, id])
+  @@index([modelId, occurredAt])
+  @@index([priceId])
+  @@map("ai_usage_events")
+}
+
+/// 用户的 AI 用量公开偏好，默认不公开排行。
+model AiUsagePreference {
+  userId            String   @id @map("user_id") @db.Uuid
+  publicLeaderboard Boolean  @default(false) @map("public_leaderboard")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_usage_preferences")
 }
