@@ -14,6 +14,7 @@ import { CreatorDashboard, CreatorMenu } from './creator';
 import { ArticlePage, Creator, Editor, Home } from './articles';
 import './styles.css';
 import './community.css';
+import { HeaderSearch } from './search';
 
 const client = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: false } } });
 function Header({ location }: { location: Location }) {
@@ -21,7 +22,6 @@ function Header({ location }: { location: Location }) {
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const navigate=useNavigate();
   useEffect(() => {
     setHidden(false);
     let last = Math.max(0, window.scrollY);
@@ -48,7 +48,7 @@ function Header({ location }: { location: Location }) {
   const authState = { background: location };
   return <header className={hidden ? 'site-header site-header-hidden' : 'site-header'}><div className="header-inner">
     <Link className="wordmark" to="/"><span className="brand-mark" aria-hidden="true">◇</span>码栈</Link>
-    <nav aria-label="主导航"><Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link><Link to="/pulses" aria-current={location.pathname==='/pulses'?'page':undefined}>沸点</Link><Link to="/courses" aria-current={location.pathname.startsWith('/courses')?'page':undefined}>课程</Link></nav><form className="search" role="search" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);const word=String(form.get('q')||'').trim();navigate(word?'/?q='+encodeURIComponent(word):'/');}}><input key={location.search} aria-label="搜索文章" name="q" type="search" maxLength={100} placeholder="搜索文章" defaultValue={new URLSearchParams(location.search).get('q')||''}/><button className="subtle" type="submit">搜索</button></form>
+    <nav aria-label="主导航"><Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link><Link to="/pulses" aria-current={location.pathname==='/pulses'?'page':undefined}>沸点</Link><Link to="/courses" aria-current={location.pathname.startsWith('/courses')?'page':undefined}>课程</Link></nav><HeaderSearch key={location.pathname + location.search} initial={location.pathname === '/' ? new URLSearchParams(location.search).get('q') ?? '' : ''}/>
     <CreatorMenu/>
     <div className="account">
       {loading ? <span role="status">加载中…</span> : error ? <button className="subtle" onClick={retry}>重试会话</button> : user ? <>

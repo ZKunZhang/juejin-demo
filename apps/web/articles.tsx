@@ -1,3 +1,4 @@
+import { MatchingTags, SearchArticle } from './search';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -42,13 +43,14 @@ export function Home() {
   const location=useLocation();
   const tags=useTags();
   const [params,setParams]=useSearchParams();
-  const filter=params.get('tagId')||'', word=params.get('q')||'', cursor=params.get('cursor')||'';
-  const tab=params.get('tab')==='following'?'following':params.get('tab')==='latest'?'latest':'recommended';
+  const filter=params.get('tagId')||'', word=params.get('q')?.trim().slice(0,100)||'', cursor=params.get('cursor')||'';
+  const tagsOnly=!!word && params.get('type')==='tag';
+  const tab=!word&&params.get('tab')==='following'?'following':params.get('tab')==='latest'?'latest':'recommended';
   const query=new URLSearchParams({tab});
   if(filter)query.set('tagId',filter);
   if(word)query.set('q',word);
   if(cursor)query.set('cursor',cursor);
-  const {data,error,refetch}=useQuery({queryKey:['articles',tab,filter,word,cursor,tab==='following'?user?.id:undefined],enabled:tab!=='following'||!!user,queryFn:({signal})=>api<Feed>('/api/articles?'+query,'GET',undefined,signal)});
+  const {data,error,refetch}=useQuery({queryKey:['articles',tab,filter,word,cursor,tab==='following'?user?.id:undefined],enabled:!tagsOnly&&(tab!=='following'||!!user),queryFn:({signal})=>api<Feed>('/api/articles?'+query,'GET',undefined,signal)});
   function changeTab(value:string) {
     const next=new URLSearchParams(params);
     next.delete('cursor');next.set('tab',value);
@@ -57,19 +59,47 @@ export function Home() {
   function select(tagId:string) {
     const next=new URLSearchParams(params);
     next.delete('cursor');
+    next.delete('type');
     if(tagId)next.set('tagId',tagId);else next.delete('tagId');
     setParams(next);
     window.scrollTo(0,0);
   }
+  if(word) return <main className="search-page">
+    <header className="search-page-heading">
+      <h1>搜索结果 <span>“{word}”</span></h1>
+      <nav aria-label="搜索分类">
+        {(['article','tag'] as const).map(type=><button key={type} aria-pressed={tagsOnly===(type==='tag')} onClick={()=>{
+          const next=new URLSearchParams(params);
+          next.delete('cursor');next.delete('tagId');
+          if(type==='tag')next.set('type',type);else next.delete('type');
+          setParams(next);
+        }}>{type==='article'?'文章':'标签'}</button>)}
+      </nav>
+    </header>
+    <section className="surface search-results" aria-label={tagsOnly?'标签结果':'文章结果'}>
+      {tagsOnly ? !tags.data ? <Pending error={tags.error} retry={()=>void tags.refetch()}/> :
+        <MatchingTags tags={tags.data} keyword={word} selectTag={tagId=>setParams({tagId})}/> : <>
+        <div className="search-toolbar" role="group" aria-label="搜索结果排序">
+          <button aria-pressed={tab==='recommended'} onClick={()=>changeTab('recommended')}>热门优先</button>
+          <button aria-pressed={tab==='latest'} onClick={()=>changeTab('latest')}>最新优先</button>
+          {filter&&<button className="tag" onClick={()=>select('')}>清除标签筛选</button>}
+        </div>
+        {!data ? <Pending error={error} retry={()=>void refetch()}/> : data.items.length ?
+          data.items.map(item=><SearchArticle key={item.id} item={item} keyword={word} selectTag={select}/>) :
+          <div className="empty"><p>没有匹配的文章</p></div>}
+        {data?.nextCursor&&<button className="subtle pager" onClick={()=>{query.set('cursor',data.nextCursor!);setParams(query);window.scrollTo(0,0);}}>下一页</button>}
+      </>}
+    </section>
+  </main>;
   return <main className="home-grid">
     <aside className="surface filter"><h2>分类</h2><button className="subtle" aria-pressed={!filter} onClick={()=>select('')}>全部文章</button>{tags.error ? <button className="subtle" onClick={()=>void tags.refetch()}>重试分类</button> : tags.data?.map(tag=><button key={tag.id} className="subtle" aria-pressed={filter===tag.id} onClick={()=>select(tag.id)}>{tag.name}</button>)}</aside>
-    <section className="surface feed"><h1>{word?'搜索结果':'技术文章'}</h1>
+    <section className="surface feed"><h1>技术文章</h1>
     <nav className="pulse-tabs" aria-label="文章排序">{Object.entries(articleTabs).map(([value,label])=><button key={value} className="subtle" type="button" aria-pressed={tab===value} onClick={()=>changeTab(value)}>{label}</button>)}</nav>
     {tab==='following'&&!user?(loading?<Pending error={null} retry={()=>{}}/>:<p className="work-message"><Link to={'/login?next='+encodeURIComponent(location.pathname+location.search)} state={{background:location}}>登录后查看关注文章</Link></p>):!data ? <Pending error={error} retry={()=>void refetch()}/> : data.items.length ? data.items.map(item=><article key={item.id} className="feed-item">
       <Link className="item-title" to={'/articles/'+item.id}>{item.title}</Link>
       {item.summary && <p className="description">{item.summary}</p>}
       <div className="meta article-meta"><span>{item.author.displayName}</span><time dateTime={item.publishedAt||undefined}>{date(item.publishedAt)}</time>{item._count&&<span>{item.viewCount} 阅读 · {item._count.likes} 赞 · {item._count.comments} 评论</span>}{item.tags.map(({tag})=><button className="tag" onClick={()=>select(tag.id)} key={tag.id}>{tag.name}</button>)}</div>
-    </article>) : <div className="empty"><p>{word||filter?'没有匹配的文章':tab==='following'?'关注的作者暂无公开文章':'暂无公开文章'}</p>{(word||filter)&&<button className="subtle" onClick={()=>setParams(new URLSearchParams())}>清除筛选</button>}</div>}
+    </article>) : <div className="empty"><p>{filter?'没有匹配的文章':tab==='following'?'关注的作者暂无公开文章':'暂无公开文章'}</p>{filter&&<button className="subtle" onClick={()=>setParams(new URLSearchParams())}>清除筛选</button>}</div>}
     {data?.nextCursor&&<button className="subtle pager" onClick={()=>{query.set('cursor',data.nextCursor!);setParams(query);window.scrollTo(0,0);}}>下一页</button>}
     </section>
     <ActivitySidebar/>
