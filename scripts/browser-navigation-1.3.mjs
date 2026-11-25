@@ -24,6 +24,12 @@ try {
   await page.getByLabel('密码', { exact:true }).fill(process.env.DEMO_BETA_PASSWORD);
   await page.getByRole('button', { name:'登录', exact:true }).click();
   await expect(page.getByRole('heading', { name:'每日用量' })).toBeVisible();
+  const heatmap=page.getByRole('img',{name:/最近 365 天/});
+  await expect(heatmap.locator('.ai-heatmap-cell')).toHaveCount(365);
+  await expect(heatmap.locator('[data-level]:not([data-level="0"])').first()).toBeVisible();
+  const metric=page.getByRole('group',{name:'每日用量指标'}).getByRole('button',{name:'费用',exact:true});
+  await metric.click();
+  await expect(metric).toHaveAttribute('aria-pressed','true');
   await page.getByRole('button', { name: '近 7 天' }).click();
   await expect(page).toHaveURL(base + '/ai-usage?period=7d');
   await page.reload();
@@ -37,7 +43,14 @@ try {
   await expect(page.getByRole('heading',{name:'文章摘要质量标注'})).toBeVisible();
   await expect(page.getByRole('button',{name:'领取任务'}).first()).toBeVisible();
 
-  for (const width of [1280, 1051, 1050, 768, 375]) {
+  await page.goto(base+'/projects');
+  const track=page.locator('#popular-projects');
+  const next=page.getByRole('button',{name:'向右滚动热门作品'});
+  await expect(next).toBeEnabled();
+  await next.click();
+  await expect.poll(()=>track.evaluate(element=>element.scrollLeft)).toBeGreaterThan(0);
+  await expect(page.getByRole('button',{name:'向左滚动热门作品'})).toBeEnabled();
+  for (const width of [1280, 1161, 1160, 768, 375]) {
     await page.setViewportSize({ width, height: 850 });
     for (const [link, route] of [['作品广场', '/projects'], ['专家标注', '/expert-annotation'], ['AI 用量', '/ai-usage']]) {
       await primary.getByRole('link', { name: link, exact: true }).click();

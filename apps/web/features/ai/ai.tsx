@@ -9,13 +9,15 @@ import './ai.css';
 
 type Option = { id: string; name: string };
 type Options = { tools: Option[]; models: Option[]; providers: (Option & { slug: string })[] };
-type Distribution = { name: string; totalTokens: string; estimatedCostUsd: string | null };
+type Distribution = { id?: string; name: string; totalTokens: string; estimatedCostUsd: string | null };
 type Usage = {
   totalTokens: string; inputTokens: string; outputTokens: string; estimatedCostUsd: string | null;
-  daily: { date: string; totalTokens: string; estimatedCostUsd: string | null }[];
+  daily: DailyUsage[];
+  heatmap?: DailyUsage[];
   hourly?: { hour: string; totalTokens: string; estimatedCostUsd: string | null }[];
   tools: Distribution[]; models: Distribution[]; publicLeaderboard: boolean;
 };
+type DailyUsage = { date: string; totalTokens: string; estimatedCostUsd: string | null };
 type Source = { id: string; label: string; tool: Option; revokedAt: string | null };
 type Rank = { userId: string; displayName: string; avatarUrl: string | null; totalTokens: string; estimatedCostUsd: string | null };
 type Price = {
@@ -26,12 +28,16 @@ type Price = {
 const periods = [{ value: 'today', label: '今天' }, { value: '7d', label: '近 7 天' }, { value: '30d', label: '近 30 天' }, { value: '90d', label: '近 90 天' }] as const;
 const rankingPeriods = [{ value: 'today', label: '今天' }, { value: 'week', label: '本周' }, { value: 'month', label: '本月' }, { value: 'all', label: '全部' }] as const;
 const count = (value: string) => new Intl.NumberFormat('zh-CN').format(BigInt(value));
-const money = (value: string | null) => value === null ? '待估算' : '$' + value;
+function money(value: string | null) {
+  if (value === null) return '待估算';
+  const [whole, fraction = ''] = value.split('.');
+  return '$' + whole + '.' + fraction.replace(/0+$/, '').padEnd(2, '0');
+}
 const failure = (error: unknown) => error instanceof Error ? error.message : '操作失败，请重试';
 
 export function AiUsage({ view = 'usage' }: { view?: 'usage' | 'leaderboard' | 'prices' }) {
   return <main className="ai-page">
-    <header className="ai-heading"><div><h1>AI 用量</h1><p>了解你的工具使用和模型消耗。</p></div>
+    <header className="ai-heading"><h1>AI 用量</h1>
       <nav aria-label="AI 用量导航" className="ai-tabs">
         <NavLink to="/ai-usage" end>用量</NavLink>
         <NavLink to="/ai-usage/leaderboard">排行榜</NavLink>
@@ -56,21 +62,22 @@ function PersonalUsage() {
   if (!user) return <section className="surface ai-panel ai-empty"><h2>查看个人用量</h2><p>登录后管理用量来源、导入记录和查看统计。</p>
     <Link className="primary" to={'/login?next=' + encodeURIComponent(location.pathname + location.search)} state={{ background: location }}>登录</Link></section>;
   return <>
-    <div className="ai-periods" role="group" aria-label="统计周期">
+    <div className="ai-overview-tools"><div className="ai-periods" role="group" aria-label="统计周期">
       {periods.map(item => <button key={item.value} aria-pressed={item.value === period.value}
         onClick={() => setParams(item.value === 'today' ? {} : { period: item.value })}>{item.label}</button>)}
-    </div>
+    </div><a className="ai-import-link" href="#usage-sources">导入用量</a></div>
     {!query.data ? <section className="surface ai-panel"><Pending error={query.error} retry={() => void query.refetch()}/></section> : <>
       <p className="ai-caption">按北京时间统计 · {period.label}</p>
       <dl className="ai-metrics">
         {[['预估费用', money(query.data.estimatedCostUsd)], ['总 Token', count(query.data.totalTokens)], ['输入 Token', count(query.data.inputTokens)], ['输出 Token', count(query.data.outputTokens)]].map(([label, value]) => <div className="surface" key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
       </dl>
       {query.data.estimatedCostUsd === null && <p className="ai-caption">部分记录缺少适用价格，费用暂无法完整估算。</p>}
-      {query.data.hourly && <section className="surface ai-panel"><h2>小时用量</h2><UsageBars items={query.data.hourly.map(hour => ({ name: hour.hour, totalTokens: hour.totalTokens, estimatedCostUsd: hour.estimatedCostUsd }))}/></section>}
-      <section className="surface ai-panel"><h2>每日用量</h2><UsageBars items={query.data.daily.map(day => ({ name: day.date, totalTokens: day.totalTokens, estimatedCostUsd: day.estimatedCostUsd }))}/></section>
-      <div className="ai-distributions">
-        <section className="surface ai-panel"><h2>工具分布</h2><UsageBars items={query.data.tools}/></section>
-        <section className="surface ai-panel"><h2>模型分布</h2><UsageBars items={query.data.models}/></section>
+      <UsageHeatmap days={query.data.heatmap ?? query.data.daily}/>
+      <div className="ai-dash-grid">
+        <UsagePanel title="每日用量" items={query.data.daily.map(day => ({ name: day.date, totalTokens: day.totalTokens, estimatedCostUsd: day.estimatedCostUsd }))}/>
+        {query.data.hourly && <UsagePanel title="小时用量" items={query.data.hourly.map(hour => ({ name: hour.hour, totalTokens: hour.totalTokens, estimatedCostUsd: hour.estimatedCostUsd }))}/>}
+        <UsagePanel title="工具分布" items={query.data.tools}/>
+        <UsagePanel title="模型分布" items={query.data.models}/>
       </div>
       <LeaderboardPreference selected={query.data.publicLeaderboard} userId={user.id}/>
     </>}
@@ -78,13 +85,60 @@ function PersonalUsage() {
   </>;
 }
 
-function UsageBars({ items }: { items: Distribution[] }) {
-  if (!items.length) return <p className="ai-empty">当前范围暂无用量记录</p>;
-  const maximum = items.reduce((max, item) => BigInt(item.totalTokens) > max ? BigInt(item.totalTokens) : max, 0n);
-  return <ul className="ai-bars">{items.map((item, index) => <li key={item.name + index}>
-    <div><span>{item.name}</span><strong>{count(item.totalTokens)} Token</strong><span>{money(item.estimatedCostUsd)}</span></div>
-    <span className="ai-bar-track" aria-hidden="true"><span style={{ width: (maximum ? Number(BigInt(item.totalTokens) * 1000n / maximum) / 10 : 0) + '%' }}/></span>
-  </li>)}</ul>;
+const dayMs = 86_400_000;
+const localCalendar = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+function UsageHeatmap({ days }: { days: DailyUsage[] }) {
+  const amounts = new Map(days.map(day => [day.date, BigInt(day.totalTokens)]));
+  const maximum = days.reduce((max, day) => BigInt(day.totalTokens) > max ? BigInt(day.totalTokens) : max, 0n);
+  const end = new Date(localCalendar.format(new Date()) + 'T00:00:00Z');
+  const start = new Date(end.getTime() - 364 * dayMs);
+  const firstWeekDay = start.getUTCDay();
+  const cells = Array.from({length:365}, (_, index) => {
+    const date = new Date(start.getTime() + index * dayMs);
+    const key = date.toISOString().slice(0,10);
+    const value = amounts.get(key) ?? 0n;
+    const offset = index + firstWeekDay;
+    return { key, value, date, column: Math.floor(offset / 7) + 2, weekday: offset % 7 };
+  });
+  return <section className="surface ai-panel ai-heatmap">
+    <div className="ai-panel-heading"><h2>用量热力图</h2><span>最近 365 天</span></div>
+    <div className="ai-heatmap-scroll" tabIndex={0} aria-label="滚动查看每日用量热力图">
+      <div className="ai-heatmap-grid" role="img" aria-label={`最近 365 天，其中 ${cells.filter(cell => cell.value > 0n).length} 天记录了 Token 用量`}>
+        {['日','一','二','三','四','五','六'].map((day,index)=><span key={day} className="ai-heatmap-label" style={{gridColumn:1,gridRow:index+2}}>{day}</span>)}
+        {cells.map(cell=>{
+          const level = cell.value && maximum ? Number(1n + cell.value * 3n / maximum) : 0;
+          return <div key={cell.key} className="ai-heatmap-cell" data-level={level} title={`${cell.key} · ${count(cell.value.toString())} Token`}
+            style={{gridColumn:cell.column,gridRow:cell.weekday+2}}/>;
+        })}
+        {cells.filter(cell=>cell.date.getUTCDate()===1).map(cell=><span key={'month-'+cell.key} className="ai-heatmap-month"
+          style={{gridColumn:cell.column,gridRow:1}}>{cell.date.getUTCMonth()+1} 月</span>)}
+      </div>
+    </div>
+    <div className="ai-heatmap-footer"><span>UTC+08:00</span><div aria-hidden="true">少 {[0,1,2,3,4].map(level=><i key={level} className="ai-heatmap-cell" data-level={level}/>)} 多</div></div>
+  </section>;
+}
+
+function UsagePanel({ title, items }: { title: string; items: Distribution[] }) {
+  const [byCost, setByCost] = useState(false);
+  const costUnits = (value: string | null) => {
+    const [whole, fraction = ''] = (value ?? '0').split('.');
+    return BigInt(whole + fraction.padEnd(10, '0'));
+  };
+  const measure = (item: Distribution) => byCost ? costUnits(item.estimatedCostUsd) : BigInt(item.totalTokens);
+  const maximum = items.reduce((max, item) => measure(item) > max ? measure(item) : max, 0n);
+  return <section className="surface ai-panel ai-chart">
+    <div className="ai-panel-heading"><h2>{title}</h2>
+      <div className="ai-periods" role="group" aria-label={title+'指标'}>
+        <button type="button" aria-pressed={!byCost} onClick={()=>setByCost(false)}>Token</button>
+        <button type="button" aria-pressed={byCost} onClick={()=>setByCost(true)}>费用</button>
+      </div>
+    </div>
+    {items.length ? <ul className="ai-bars">{items.map((item, index) => <li key={item.id ?? item.name + index}>
+      <div><span>{item.name}</span><strong>{byCost ? money(item.estimatedCostUsd) : count(item.totalTokens)+' Token'}</strong></div>
+      <span className="ai-bar-track" aria-hidden="true"><span style={{ width: (maximum ? Number(measure(item) * 1000n / maximum) / 10 : 0) + '%' }}/></span>
+    </li>)}</ul> : <p className="ai-empty">当前范围暂无用量记录</p>}
+  </section>;
 }
 
 function LeaderboardPreference({ selected, userId }: { selected: boolean; userId: string }) {
@@ -143,7 +197,7 @@ function UsageSources({ userId, options, optionsError, retryOptions }: { userId:
     });
   }
   const active = query.data?.items.filter(item => !item.revokedAt) ?? [];
-  return <section className="surface ai-panel ai-source-panel"><h2>用量来源与导入</h2>
+  return <section className="surface ai-panel ai-source-panel" id="usage-sources"><h2>用量来源与导入</h2>
     {!options ? <Pending error={optionsError} retry={retryOptions}/> : <form className="ai-source-create" onSubmit={event => void create(event)}>
       <label>来源名称<input name="label" required maxLength={120} placeholder="例如：工作电脑" disabled={busy}/></label>
       <label>工具<AppSelect label="来源工具" value={toolId || undefined} placeholder="选择工具" disabled={busy} options={options.tools.map(tool => ({ value: tool.id, label: tool.name }))} onChange={setToolId}/></label>

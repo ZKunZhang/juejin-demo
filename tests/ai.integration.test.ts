@@ -17,6 +17,8 @@ test('AI import uses exact historical costs, source ownership, opt-in privacy an
   let modelId: string | undefined;
   let providerId: string | undefined;
   let toolId: string | undefined;
+  let secondModelId: string | undefined;
+  let secondToolId: string | undefined;
   async function identity(suffix: string, role: 'ADMIN' | 'USER') {
     const token = randomBytes(32).toString('hex');
     const user = await db.user.create({ data: {
@@ -80,9 +82,20 @@ test('AI import uses exact historical costs, source ownership, opt-in privacy an
     expect(Number(usage.json().estimatedCostUsd)).toBe(4.25);
     expect(usage.json().daily[0].date).toBe(new Date(boundary.getTime() + 8 * 3600000).toISOString().slice(0, 10));
     expect(usage.json().publicLeaderboard).toBe(false);
+    expect(usage.json().heatmap.map((row: { date: string }) => row.date)).toEqual([
+      new Date(boundary.getTime() - 1 + 8 * 3600000).toISOString().slice(0, 10),
+      new Date(boundary.getTime() + 8 * 3600000).toISOString().slice(0, 10),
+    ]);
     const all = await app.inject({ method: 'GET', url: '/api/me/ai/usage?period=7d', headers: owner.headers });
     expect(all.json().totalTokens).toBe('2750000');
     expect(Number(all.json().estimatedCostUsd)).toBe(5.25);
+    const replace = await savePrice({ ...price, effectiveFrom: new Date(boundary.getTime() + 10).toISOString(), effectiveTo: null, inputPrice: '3' });
+    expect(replace.statusCode).toBe(201);
+    const unchanged = await app.inject({ method: 'GET', url: '/api/me/ai/usage?period=7d', headers: owner.headers });
+    expect(Number(unchanged.json().estimatedCostUsd)).toBe(5.25);
+    const historical = await db.aiUsageEvent.findFirstOrThrow({ where: { sourceId, sourceEventKey: 'after' }, include: { price: true } });
+    expect(historical.price!.inputPrice.toString()).toBe('2');
+    expect(historical.price!.effectiveTo!.toISOString()).toBe(new Date(boundary.getTime() + 10).toISOString());
     const privateBoard = await app.inject({ method: 'GET', url: '/api/ai/leaderboard?period=all' });
     expect(privateBoard.json().items.some((row: { userId: string }) => row.userId === owner.id)).toBe(false);
     const preference = (publicLeaderboard: boolean) => app.inject({ method: 'PUT', url: '/api/me/ai/preferences', headers: owner.headers, payload: { publicLeaderboard } });
@@ -103,12 +116,31 @@ test('AI import uses exact historical costs, source ownership, opt-in privacy an
     expect((await app.inject({ method: 'DELETE', url: '/api/me/ai/sources/' + sourceId, headers: other.headers })).statusCode).toBe(404);
     expect((await app.inject({ method: 'DELETE', url: '/api/me/ai/sources/' + sourceId, headers: owner.headers })).statusCode).toBe(204);
     expect((await send([recent])).statusCode).toBe(404);
+    const secondModel = await catalog({ kind: 'model', name: 'Model ' + key, modelKey: key + '-second', providerId });
+    expect(secondModel.statusCode).toBe(201);
+    secondModelId = secondModel.json().id;
+    const secondTool = await catalog({ kind: 'tool', name: 'Tool ' + key, slug: 'second-' + key });
+    expect(secondTool.statusCode).toBe(201);
+    secondToolId = secondTool.json().id;
+    const secondSource = await app.inject({ method: 'POST', url: '/api/me/ai/sources', headers: owner.headers, payload: { toolId: secondToolId, label: 'Second' } });
+    expect(secondSource.statusCode).toBe(201);
+    const secondEvent = await app.inject({ method: 'POST', url: '/api/me/ai/events', headers: owner.headers, payload: {
+      sourceId: secondSource.json().id, events: [{ ...recent, modelId: secondModelId, inputTokens: '3', outputTokens: '0', cacheReadTokens: '0' }],
+    } });
+    expect(secondEvent.statusCode).toBe(200);
+    const grouped = await app.inject({ method: 'GET', url: '/api/me/ai/usage', headers: owner.headers });
+    expect(grouped.json().tools).toHaveLength(2);
+    expect(grouped.json().models).toHaveLength(2);
+    expect(new Set(grouped.json().tools.map((row: { id: string }) => row.id)).size).toBe(2);
+    expect(new Set(grouped.json().models.map((row: { id: string }) => row.id)).size).toBe(2);
   } finally {
     await db.user.deleteMany({ where: { id: { in: users } } });
     if (modelId) {
       await db.aiModelPrice.deleteMany({ where: { modelId } });
       await db.aiModel.deleteMany({ where: { id: modelId } });
     }
+    if (secondModelId) await db.aiModel.deleteMany({ where: { id: secondModelId } });
+    if (secondToolId) await db.aiTool.deleteMany({ where: { id: secondToolId } });
     if (providerId) await db.aiProvider.deleteMany({ where: { id: providerId } });
     if (toolId) await db.aiTool.deleteMany({ where: { id: toolId } });
     await app.close();

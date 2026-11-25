@@ -1,10 +1,12 @@
 .community .header-inner > .community-main-nav {
   min-width: 0;
+  flex-shrink: 0;
+  overflow-x: auto;
   gap: clamp(10px, 1.3vw, 20px);
 }
 .community .header-inner > .community-main-nav a { white-space: nowrap; }
 
-@media (max-width: 1050px) {
+@media (max-width: 1160px) {
   .community .header-inner { flex-wrap: wrap; }
   .community .header-inner > .community-main-nav {
     order: 3;

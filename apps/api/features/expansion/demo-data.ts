@@ -78,7 +78,7 @@ export async function seedExpansion(db:PrismaClient) {
         const source=sources[sample%sources.length];
         await tx.aiUsageEvent.upsert({
           where:{sourceId_sourceEventKey:{sourceId:source.id,sourceEventKey:'v13-demo-'+sample}},
-          update:{},
+          update:{occurredAt},
           create:{sourceId:source.id,sourceEventKey:'v13-demo-'+sample,modelId:model.id,occurredAt,
             inputTokens:BigInt(input),unclassifiedInputTokens:0n,outputTokens:BigInt(output),cacheReadTokens:0n,cacheWriteTokens:0n,priceId:price.id,estimatedCostUsd},
         });
