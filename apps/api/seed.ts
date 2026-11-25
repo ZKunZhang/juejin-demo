@@ -1,3 +1,4 @@
+import { seedCourses } from './demo-courses';
 import { connectDatabase } from './db';
 import { hashPassword } from './security';
 
@@ -66,6 +67,7 @@ try {
       images: ['/sample.png'], featured: true, tags: { create: { tagId: tag.id } },
     } });
   }
+  if (process.env.ENABLE_DEMO_COURSES === 'true') await seedCourses(db);
   console.log('演示账号已初始化：', accounts.map(account => account.username).join('、'));
 } finally {
   await db.$disconnect();

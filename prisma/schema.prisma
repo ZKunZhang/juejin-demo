@@ -40,6 +40,7 @@ model User {
   followers    UserFollow[] @relation("Followee")
   activities   Activity[]
   pulses       Pulse[]
+  courses      Course[]
   pulseLikes   PulseLike[]
   checkins     Checkin[]
 
@@ -313,4 +314,58 @@ model Checkin {
 
   @@id([userId, localDate])
   @@map("checkins")
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  UNLISTED
+}
+
+enum CourseLevel {
+  BEGINNER
+  ADVANCED
+}
+
+model CourseCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique @db.VarChar(64)
+  name      String   @db.VarChar(60)
+  sortOrder Int      @default(0) @map("sort_order")
+  courses   Course[]
+
+  @@map("course_categories")
+}
+
+model Course {
+  id          String         @id @default(uuid()) @db.Uuid
+  categoryId  String         @map("category_id") @db.Uuid
+  authorId    String         @map("author_id") @db.Uuid
+  title       String         @db.VarChar(160)
+  summary     String         @db.VarChar(500)
+  description String
+  level       CourseLevel
+  status      CourseStatus   @default(DRAFT)
+  publishedAt DateTime?      @map("published_at") @db.Timestamptz(3)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  category    CourseCategory @relation(fields: [categoryId], references: [id])
+  author      User           @relation(fields: [authorId], references: [id])
+  lessons     CourseLesson[]
+
+  @@index([status, categoryId, level, publishedAt, id])
+  @@map("courses")
+}
+
+model CourseLesson {
+  id        String       @id @default(uuid()) @db.Uuid
+  courseId  String       @map("course_id") @db.Uuid
+  position  Int
+  title     String       @db.VarChar(160)
+  body      String
+  status    CourseStatus @default(DRAFT)
+  course    Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, position])
+  @@map("course_lessons")
 }

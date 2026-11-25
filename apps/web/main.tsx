@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthPage, safeReturn } from './auth-page';
 import { SessionProvider, useSession } from './session';
 import { api } from './api';
+import { CoursePage, Courses, LessonPage } from './courses';
 import { Pulses } from './pulses';
 import { MyRelations } from './interactions';
 import { ArticlePage, Creator, Editor, Home } from './articles';
@@ -27,7 +28,7 @@ function Header({ location }: { location: Location }) {
   const authState = { background: location };
   return <header className="site-header"><div className="header-inner">
     <Link className="wordmark" to="/"><span className="brand-mark" aria-hidden="true">◇</span>码栈</Link>
-    <nav aria-label="主导航"><Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link><Link to="/pulses" aria-current={location.pathname==='/pulses'?'page':undefined}>沸点</Link><Link to="/creator/articles" aria-current={location.pathname.startsWith('/creator')?'page':undefined}>创作者中心</Link></nav><form className="search" role="search" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);const word=String(form.get('q')||'').trim();navigate(word?'/?q='+encodeURIComponent(word):'/');}}><input key={location.search} aria-label="搜索文章" name="q" type="search" maxLength={100} placeholder="搜索文章" defaultValue={new URLSearchParams(location.search).get('q')||''}/><button className="subtle" type="submit">搜索</button></form>
+    <nav aria-label="主导航"><Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link><Link to="/pulses" aria-current={location.pathname==='/pulses'?'page':undefined}>沸点</Link><Link to="/courses" aria-current={location.pathname.startsWith('/courses')?'page':undefined}>课程</Link><Link to="/creator/articles" aria-current={location.pathname.startsWith('/creator')?'page':undefined}>创作者中心</Link></nav><form className="search" role="search" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);const word=String(form.get('q')||'').trim();navigate(word?'/?q='+encodeURIComponent(word):'/');}}><input key={location.search} aria-label="搜索文章" name="q" type="search" maxLength={100} placeholder="搜索文章" defaultValue={new URLSearchParams(location.search).get('q')||''}/><button className="subtle" type="submit">搜索</button></form>
     <div className="account">
       {loading ? <span role="status">加载中…</span> : error ? <button className="subtle" onClick={retry}>重试会话</button> : user ? <>
         <Link className="profile-link" to="/me" aria-current={location.pathname === '/me' ? 'page' : undefined}>
@@ -83,6 +84,9 @@ function WebRoutes() {
 
   return <><Header location={content}/><Routes location={content}>
     <Route path="/" element={<Home/>}/>
+    <Route path="/courses" element={<Courses/>}/>
+    <Route path="/courses/:id" element={<CoursePage/>}/>
+    <Route path="/courses/:id/lessons/:lessonId" element={<LessonPage/>}/>
     <Route path="/pulses" element={<Pulses/>}/>
     <Route path="/articles/:id" element={<ArticlePage/>}/>
     <Route path="/creator/articles" element={<Creator/>}/>
