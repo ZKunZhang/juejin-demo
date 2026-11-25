@@ -101,9 +101,16 @@ model Article {
   @@map("articles")
 }
 
+enum TagScope {
+  BOTH
+  ARTICLE
+  PULSE
+}
+
 model Tag {
   id        String       @id @default(uuid()) @db.Uuid
   slug      String       @unique @db.VarChar(64)
+  scope     TagScope     @default(BOTH)
   name      String       @db.VarChar(60)
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   articles  ArticleTag[]

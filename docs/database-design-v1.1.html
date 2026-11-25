@@ -27,7 +27,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <p>先验证用户注册与登录，再跑通文章发布、列表和详情，随后接入独立管理后台。前台和后台使用 React，共用 Node.js API 和 PostgreSQL，数据访问与版本化迁移使用 Prisma。</p>
 <div class="pills"><span>Node.js</span><span>Prisma ORM</span><span>PostgreSQL</span><span>React 前台</span><span>React 管理后台</span></div>
 </div></header>
-<nav aria-label="文档目录"><a href="#sequence">实施顺序</a><a href="#accounts">账号与会话</a><a href="#articles">文章与标签</a><a href="#community">互动与管理</a><a href="#activities">社区活动</a><a href="#state">状态迁移</a><a href="#access">接口权限</a><a href="#migration">索引与迁移</a></nav>
+<nav aria-label="文档目录"><a href="#sequence">实施顺序</a><a href="#accounts">账号与会话</a><a href="#articles">文章与标签</a><a href="#community">互动与管理</a><a href="#content-expansion">沸点与课程</a><a href="#activities">社区活动</a><a href="#state">状态迁移</a><a href="#access">接口权限</a><a href="#migration">索引与迁移</a></nav>
 <main>
 <section id="sequence">
 <h2>实施顺序</h2>
@@ -37,7 +37,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <li><strong>管理后台。</strong>另建 React 后台入口，共用同一 API 服务。启用管理员文章审核、下架、评论隐藏与恢复，记录每次状态变更。点赞、收藏和关注接入各自的关系表。</li>
 </ol>
 <p class="note">第二步拟在开发验收环境验证直接发布。第三步上线时，正式发布改为提交审核，由管理员审核通过后公开。如果前两步也要公开部署，发布入口等审核能力就绪再启用。</p>
-<p class="muted">这份文档是本轮数据库评审基准。沸点、小册、收藏集分组等后续功能各自分阶段设计和迁移。</p>
+<p class="muted">这份文档是本轮数据库评审基准。沸点、小册各自分阶段迁移。收藏集分组仍属于后续功能。</p>
 </section>
 
 <section id="accounts">
@@ -77,6 +77,21 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <tr><td><code>comment_moderation_logs</code></td><td><code>id uuid</code>、<code>comment_id uuid</code>、<code>admin_id uuid</code>、<code>from_status</code>、<code>to_status</code>、<code>reason text?</code>、<code>created_at</code></td><td>PK <code>id</code>，引用评论、管理员。隐藏和恢复都追加操作记录，隐藏须说明原因。</td></tr>
 </tbody></table></div>
 <p>文章只存内容和生命周期字段。点赞数、收藏数和关注统计从关系表按需聚合，列表批量查询。标签、点赞、收藏和关注的组合主键同时负责防重。</p>
+</section>
+
+<section id="content-expansion">
+<h2>浏览量、沸点与课程</h2>
+<div class="table"><table>
+<thead><tr><th>表</th><th>用途与约束</th></tr></thead>
+<tbody>
+<tr><td><code>articles.view_count</code> / <code>article_view_windows</code></td><td>累积阅读量与会话去重。窗口表按文章、会话标识摘要组成主键，同浏览器会话 30 分钟只计一次。</td></tr>
+<tr><td><code>pulses</code></td><td>UUID、作者、正文、图片地址数组、精选状态和创建时间。正文或图片至少有一项，图片最多四张。</td></tr>
+<tr><td><code>tags.scope</code> / <code>pulse_tags</code></td><td>标签可通用、文章专用或沸点专用。沸点话题用显式关系表，组合主键为沸点和标签 ID。</td></tr>
+<tr><td><code>pulse_likes</code> / <code>checkins</code></td><td>按用户和沸点去重点赞，按用户和北京时间日期去重签到。关注复用 <code>user_follows</code>。</td></tr>
+<tr><td><code>course_categories</code> / <code>courses</code> / <code>course_lessons</code></td><td>分类与作者关联、难度与发布状态。章节按小册和位置唯一，公开接口同时检查课程和章节发布状态。</td></tr>
+</tbody></table></div>
+<h3>沸点参考数据映射</h3>
+<p><code>msg_Info.content / pic_list / ctime</code> 对应正文、图片和创建时间；<code>topic</code> 对应本地话题；<code>author_user_info</code> 使用本地作者公开昵称与头像；<code>user_interact</code> 的点赞、关注状态来自当前会话和关系表。点赞数实时聚合。演示内容使用本地账号、UUID 与时间戳，外站 ID、计数、权限、审核值与成长分不进入本地模型。</p>
 </section>
 
 <section id="activities">

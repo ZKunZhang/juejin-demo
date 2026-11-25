@@ -5,7 +5,7 @@ import { authorSelect, missing, object, uuid } from './articles';
 
 type PulseInput={body:string;images:string[];tagId?:string};
 type Query={tab?:'latest'|'recommended'|'following'|'featured';tagId?:string};
-const pulseSelect={id:true,body:true,images:true,featured:true,createdAt:true,author:{select:authorSelect},
+const pulseSelect={id:true,body:true,images:true,featured:true,createdAt:true,author:{select:{...authorSelect,avatarUrl:true}},
   tags:{select:{tag:{select:{id:true,name:true,slug:true}}}},_count:{select:{likes:true}}} as const;
 
 function localDate() {
@@ -21,6 +21,10 @@ function imageUrl(value:string) {
 }
 export function registerPulses(app:FastifyInstance,db:PrismaClient,auth:ReturnType<typeof security>,protectedWrite:preHandlerHookHandler[]) {
   const write=[...protectedWrite,auth.requireUser];
+  app.get('/api/pulses/topics',async()=>db.tag.findMany({
+    where:{scope:{not:'ARTICLE'}},select:{id:true,name:true,slug:true,_count:{select:{pulses:true}}},
+    orderBy:[{scope:'desc'},{createdAt:'asc'},{id:'asc'}],
+  }));
   app.get<{Querystring:Query}>('/api/pulses',{
     schema:{querystring:object({tab:{enum:['latest','recommended','following','featured']},tagId:uuid},[])},
   },async request=>{
@@ -34,7 +38,10 @@ export function registerPulses(app:FastifyInstance,db:PrismaClient,auth:ReturnTy
     },select:{...pulseSelect,likes:actor?{where:{userId:actor.id},select:{userId:true},take:1}:false},
     orderBy:tab==='recommended'?[{featured:'desc'},{likes:{_count:'desc'}},{createdAt:'desc'},{id:'desc'}]:[{createdAt:'desc'},{id:'desc'}],
     take:tab==='featured'?5:50});
-    return rows.map(({likes,...row})=>({...row,liked:!!likes?.length}));
+    const followed=new Set(actor?(await db.userFollow.findMany({
+      where:{followerId:actor.id,followeeId:{in:rows.map(row=>row.author.id)}},select:{followeeId:true},
+    })).map(row=>row.followeeId):[]);
+    return rows.map(({likes,...row})=>({...row,liked:!!likes?.length,following:followed.has(row.author.id)}));
   });
   app.post<{Body:PulseInput}>('/api/pulses',{preHandler:write,
     schema:{body:object({body:{type:'string',maxLength:2000},images:{type:'array',maxItems:4,uniqueItems:true,items:{type:'string',maxLength:2000}},tagId:uuid},['body','images'])},
@@ -42,9 +49,9 @@ export function registerPulses(app:FastifyInstance,db:PrismaClient,auth:ReturnTy
     const {tagId}=request.body;
     const body=request.body.body.trim(),images=request.body.images.map(imageUrl);
     if(!body&&!images.length)throw new ApiError(400,'EMPTY_PULSE','请输入文字或添加图片');
-    if(tagId&&!await db.tag.findUnique({where:{id:tagId},select:{id:true}}))throw new ApiError(400,'UNKNOWN_TAG','标签不存在');
+    if(tagId&&!await db.tag.findFirst({where:{id:tagId,scope:{not:'ARTICLE'}},select:{id:true}}))throw new ApiError(400,'UNKNOWN_TAG','标签不存在');
     const pulse=await db.pulse.create({data:{authorId:request.actor!.id,body,images,tags:tagId?{create:{tagId}}:undefined},select:pulseSelect});
-    return reply.code(201).send({...pulse,liked:false});
+    return reply.code(201).send({...pulse,liked:false,following:false});
   });
   app.put<{Params:{id:string};Body:{active:boolean}}>('/api/pulses/:id/like',{
     preHandler:write,schema:{params:object({id:uuid}),body:object({active:{type:'boolean'}})},

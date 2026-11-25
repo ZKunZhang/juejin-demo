@@ -6,7 +6,7 @@ import { useSession } from './session';
 import { Pending, type Tag } from './articles';
 import './pulses.css';
 
-type Pulse={id:string;body:string;images:string[];featured:boolean;createdAt:string;author:{id:string;displayName:string};tags:{tag:Tag}[];_count:{likes:number};liked:boolean};
+type Pulse={id:string;body:string;images:string[];featured:boolean;createdAt:string;author:{id:string;displayName:string;avatarUrl:string|null};tags:{tag:Tag}[];_count:{likes:number};liked:boolean;following:boolean};
 const labels={following:'关注',recommended:'推荐',latest:'最新'} as const;
 type Tab=keyof typeof labels;
 
@@ -23,7 +23,7 @@ export function Pulses() {
   const [selected,setSelected]=useState('');
   const [failure,setFailure]=useState('');
   const [publishing,setPublishing]=useState(false);
-  const tags=useQuery({queryKey:['tags'],queryFn:({signal})=>api<Tag[]>('/api/tags','GET',undefined,signal)});
+  const tags=useQuery({queryKey:['pulse-topics'],queryFn:({signal})=>api<Tag[]>('/api/pulses/topics','GET',undefined,signal)});
   const feed=useQuery({queryKey:['pulses',tab,tag,user?.id],enabled:tab!=='following'||!!user,queryFn:({signal})=>api<Pulse[]>('/api/pulses?'+new URLSearchParams({tab,...(tag?{tagId:tag}:{})}),'GET',undefined,signal)});
   const featured=useQuery({queryKey:['featured-pulses',user?.id],queryFn:({signal})=>api<Pulse[]>('/api/pulses?tab=featured','GET',undefined,signal)});
   function select(key:string,value:string) {
@@ -69,17 +69,21 @@ function PulseCard({item,login}:{item:Pulse;login:string}) {
   const client=useQueryClient();
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
-  async function like() {
+  async function toggle(kind:'like'|'follow') {
     setBusy(true);setError('');
-    try{await api('/api/pulses/'+item.id+'/like','PUT',{active:!item.liked});await client.invalidateQueries({queryKey:['pulses']});}
+    try{
+      if(kind==='like') await api('/api/pulses/'+item.id+'/like','PUT',{active:!item.liked});
+      else await api('/api/users/'+item.author.id+'/follow','PUT',{active:!item.following});
+      await Promise.all(['pulses','following'].map(key=>client.invalidateQueries({queryKey:[key]})));
+    }
     catch(error){setError(error instanceof Error?error.message:'操作失败');}
     finally{setBusy(false);}
   }
-  return <article className="pulse-card"><div className="article-meta"><strong>{item.author.displayName}</strong><time className="meta" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</time>{item.featured&&<span className="tag">精选</span>}</div>
+  return <article className="pulse-card"><div className="article-meta"><span className="avatar" aria-hidden="true">{item.author.avatarUrl?.startsWith('https://')?<img src={item.author.avatarUrl} alt="" referrerPolicy="no-referrer"/>:Array.from(item.author.displayName)[0]}</span><strong>{item.author.displayName}</strong><time className="meta" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</time>{item.featured&&<span className="tag">精选</span>}{user&&user.id!==item.author.id&&<button className="subtle pulse-follow" type="button" aria-pressed={item.following} disabled={busy} onClick={()=>void toggle('follow')}>{item.following?'取消关注':'关注作者'}</button>}</div>
     {item.body&&<p>{item.body}</p>}
     {!!item.images.length&&<div className="pulse-images">{item.images.map((url,index)=><a href={url} key={url} target="_blank" rel="noreferrer"><img src={url} alt={'沸点图片 '+(index+1)} loading="lazy" referrerPolicy="no-referrer"/></a>)}</div>}
     <div className="article-meta">{item.tags.map(({tag})=><span className="tag" key={tag.id}>{tag.name}</span>)}
-      {user?<button className="subtle" type="button" aria-pressed={item.liked} onClick={like} disabled={busy}>{item.liked?'取消点赞':'点赞'} · {item._count.likes}</button>:<Link to={login} state={{background:location}} className="subtle">点赞 · {item._count.likes}</Link>}
+      {user?<button className="subtle" type="button" aria-pressed={item.liked} onClick={()=>void toggle('like')} disabled={busy}>{item.liked?'取消点赞':'点赞'} · {item._count.likes}</button>:<Link to={login} state={{background:location}} className="subtle">点赞 · {item._count.likes}</Link>}
     </div>{error&&<p className="error" role="alert">{error}</p>}
   </article>;
 }

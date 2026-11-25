@@ -14,3 +14,4 @@
 .pulse-images img{display:block;width:100%;max-height:220px;object-fit:cover;border-radius:8px}
 @media(max-width:1023px){.pulse-side{grid-column:2}}
 @media(max-width:767px){.pulse-side{grid-column:auto}.header-inner nav[aria-label="主导航"]{order:3;flex:1 0 100%;overflow-x:auto;white-space:nowrap}.header-inner nav[aria-label="主导航"] a:nth-child(2){display:block}.header-inner nav[aria-label="主导航"] a{min-height:44px;padding-inline:5px}}
+.pulse-card .avatar{display:grid;overflow:hidden}.pulse-card .avatar img{width:100%;height:100%;object-fit:cover}.pulse-follow{margin-left:auto}

@@ -66,6 +66,12 @@ try {
       id: demoId, authorId: author.id, body: '今天整理了一份开发工作台。你最近用得最多的工具是什么？',
       images: ['/sample.png'], featured: true, tags: { create: { tagId: tag.id } },
     } });
+    const topic=await db.tag.findUniqueOrThrow({where:{slug:'work-break'}});
+    const shortId='f03c5e20-9ac8-446c-a05c-3ffc7c68f691';
+    await db.pulse.upsert({where:{id:shortId},update:{},create:{
+      id:shortId,authorId:author.id,body:'昨晚好像做了个好梦，但是醒来就不记得是什么了',
+      tags:{create:{tagId:topic.id}},
+    }});
   }
   if (process.env.ENABLE_DEMO_COURSES === 'true') await seedCourses(db);
   console.log('演示账号已初始化：', accounts.map(account => account.username).join('、'));

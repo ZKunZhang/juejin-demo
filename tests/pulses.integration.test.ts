@@ -23,7 +23,12 @@ test('pulse publish, image validation, tag, followed feed, like and day check-in
   }
   try{
     const author=await actor('author'), reader=await actor('reader');
-    const tag=await db.tag.findFirstOrThrow();
+    const tag=await db.tag.findUniqueOrThrow({where:{slug:'work-break'}});
+    expect((await app.inject('/api/tags')).json()).not.toContainEqual(expect.objectContaining({id:tag.id}));
+    expect((await app.inject('/api/pulses/topics')).json()).toContainEqual(expect.objectContaining({id:tag.id,name:'上班摸鱼'}));
+    const blocked=await app.inject({method:'POST',url:'/api/articles',headers:author.headers,payload:{title:'文章测试',bodyMarkdown:'正文',tagIds:[tag.id]}});
+    expect(blocked.statusCode).toBe(400);
+    expect(await db.article.count({where:{authorId:author.id}})).toBe(0);
     const input={body:'',images:['https://example.com/pulse.png'],tagId:tag.id};
     const create=(payload:typeof input)=>app.inject({method:'POST',url:'/api/pulses',headers:author.headers,payload});
     expect((await create({...input,images:[]})).statusCode).toBe(400);
@@ -34,7 +39,7 @@ test('pulse publish, image validation, tag, followed feed, like and day check-in
     expect((await app.inject('/api/pulses?tab=following')).statusCode).toBe(401);
     await db.userFollow.create({data:{followerId:reader.id,followeeId:author.id}});
     const feed=await app.inject({url:'/api/pulses?tab=following&tagId='+tag.id,headers:reader.headers});
-    expect(feed.json()).toEqual([expect.objectContaining({id,images:input.images,_count:{likes:0}})]);
+    expect(feed.json()).toEqual([expect.objectContaining({id,images:input.images,following:true,author:expect.objectContaining({displayName:'author',avatarUrl:null}),_count:{likes:0}})]);
     const like=()=>app.inject({method:'PUT',url:'/api/pulses/'+id+'/like',headers:reader.headers,payload:{active:true}});
     expect((await Promise.all([like(),like()])).map(item=>item.statusCode)).toEqual([200,200]);
     expect(await db.pulseLike.count({where:{pulseId:id}})).toBe(1);

@@ -34,7 +34,7 @@ const decodeCursor = (value: string, tag: string, word: string) => {
 export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: ReturnType<typeof security>, protectedWrite: preHandlerHookHandler[], secure: boolean) {
   const write = [...protectedWrite,auth.requireUser];
   const tagCheck = async (tagIds: string[]) => {
-    if (await db.tag.count({where:{id:{in:tagIds}}}) !== tagIds.length) throw new ApiError(400,'UNKNOWN_TAG','存在无效标签');
+    if (await db.tag.count({where:{id:{in:tagIds},scope:{not:'PULSE'}}}) !== tagIds.length) throw new ApiError(400,'UNKNOWN_TAG','存在无效标签');
   };
   const owned = async (id:string, userId:string) => {
     const row = await db.article.findUnique({where:{id}, select:{authorId:true,title:true,bodyMarkdown:true}});
@@ -42,7 +42,7 @@ export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: R
     if (row.authorId !== userId) throw new ApiError(403,'FORBIDDEN','无权修改此文章');
     return row;
   };
-  app.get('/api/tags', async () => db.tag.findMany({select:{id:true,name:true,slug:true},orderBy:{createdAt:'asc'}}));
+  app.get('/api/tags', async () => db.tag.findMany({where:{scope:{not:'PULSE'}},select:{id:true,name:true,slug:true},orderBy:{createdAt:'asc'}}));
   app.get<{ Querystring:{tagId?:string; cursor?:string; limit?:string; q?:string} }>('/api/articles', {
     schema:{querystring:object({tagId:uuid,cursor:{type:'string',maxLength:1000},limit:{type:'string',pattern:'^(?:[1-9]|[1-4][0-9]|50)$'},q:{type:'string',maxLength:100}},[])},
   }, async request => {

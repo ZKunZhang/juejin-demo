@@ -1,6 +1,6 @@
 # 码栈开发者社区
 
-当前应用使用 Node.js 24、Fastify、Prisma 7、PostgreSQL 和 React。开发实现包括账号、文章、审核、互动和活动五个模块。
+当前应用使用 Node.js 24、Fastify、Prisma 7、PostgreSQL 和 React。开发实现包括账号、文章、审核、互动、活动、沸点和课程模块。
 
 ## 本地运行
 
@@ -30,6 +30,8 @@
   npm run test:browser:auth
   npm run test:browser:community
   npm run test:browser:activities
+  npm run test:browser:pulses
+  npm run test:browser:courses
   ```
 
   浏览器脚本需先运行 API 与前台，并使用本地演示库。它们通过实际页面和接口验收，并清理临时测试文章和交互。四个演示账户的关注关系会恢复为脚本运行前的状态。
@@ -39,3 +41,5 @@
 构建分别生成 `dist/index.html` 和 `dist/admin/index.html`。前台深链接由网关回退到前者，`/admin/*` 回退到后者，`/api/*` 反向代理到同一 API。HTTPS 部署设置 `NODE_ENV=production`、`APP_ORIGINS` 和正式数据库连接。演示种子仅用于本地库。
 
 活动由管理员在后台「活动管理」配置，首页读取处于展示时间内的已发布活动。数据库结构见 [database-design-v1.1](docs/database-design-v1.1.html)。
+
+沸点和课程演示数据可通过 `ENABLE_DEMO_PULSES=true ENABLE_DEMO_COURSES=true npm run db:seed` 初始化。
