@@ -38,16 +38,18 @@ try {
       ['backend', '一次 PostgreSQL 索引排查记录', '从查询计划定位慢查询，比较索引覆盖和写入成本。', '用实际参数运行 EXPLAIN，区分估算行数与真实行数。'],
       ['ai', '给 AI 应用补上可观测性', '记录请求耗时、失败率与输入输出，让故障排查可复现。', '给请求分配关联 ID，在日志中避免记录用户凭据。'],
       ['tools', '团队项目里的 Git 提交习惯', '用小粒度提交和可读的变更说明降低协作成本。', '按可验证的行为切分提交，并把迁移与应用改动一同评审。'],
+      ['frontend', '用 React 和 Three.js 搭一个可交互场景', '把场景加载、对象选择和相机聚焦拆成独立的交互步骤。', '先准备一个可点击的最小场景。用稳定 ID 关联模型与详情面板，并验证重载后依然能定位。', 'https://juejin.cn/post/7700887980140429322'],
+      ['tools', '把代码评审流程写成可重复的检查项', '将一次评审拆成定位变更、检查风险和复核结果，方便人工和工具协作。', '用同一组样例分别检查正常、边界和失败路径，再记录每条结论的证据。', 'https://juejin.cn/post/7705291560008531977'],
     ];
     await db.$transaction(async tx => {
-      for (const [index, [slug, title, summary, note]] of fixtures.entries()) {
+      for (const [index, [slug, title, summary, note, reference]] of fixtures.entries()) {
         const tag = tags.find(row => row.slug === slug);
         if (!tag) throw new Error('Apply article migrations before seeding demo articles');
         await tx.article.upsert({
           where: { id: '8c5a7ea9-1066-4e3d-8c49-fa4aaa43100'+(index+1) }, update: {},
           create: {
             id: '8c5a7ea9-1066-4e3d-8c49-fa4aaa43100'+(index+1),
-            authorId: author.id, title, summary, bodyMarkdown: summary+'\n\n## 实践思路\n'+note+'\n\n## 验证\n- 固定输入和预期结果\n- 覆盖最常见的边界条件',
+            authorId: author.id, title, summary, bodyMarkdown: summary+'\n\n## 实践思路\n'+note+'\n\n## 验证\n- 固定输入和预期结果\n- 覆盖最常见的边界条件'+(reference?'\n\n选题参考：[掘金原文]('+reference+')':''),
             status: 'PUBLISHED', reviewStatus: 'APPROVED', publishedAt: new Date(Date.now() - index * 86400000),
             tags: { create: { tagId: tag.id } },
           },
