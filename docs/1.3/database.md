@@ -27,7 +27,7 @@
 
 | 表 | 核心字段 | 约束与索引 |
 | --- | --- | --- |
-| `projects` | `id`、`author_id`、标题、简介、详情 Markdown、封面地址、项目地址、可空仓库地址、`status`、`version`、创建、更新、最近提交与发布时间 | 公开作品须为已发布且具有发布时间。索引 `(status, published_at, id)` 和 `(author_id, updated_at)` |
+| `projects` | `id`、`author_id`、标题、简介、详情 Markdown、封面地址、项目地址、可空仓库地址、`status`、`version`、创建、更新、最近提交时间（`submitted_at`）与发布时间 | 公开作品须为已发布且具有发布时间。索引 `(status, published_at, id)` 和 `(author_id, updated_at)` |
 | `project_categories`、`project_platforms` | `id`、`slug`、名称、展示顺序、启用状态 | 两张目录表各自 slug 唯一 |
 | `project_category_links`、`project_platform_links` | `project_id` 与对应目录 ID | 组合主键防重。建立目录 ID 开头的反向索引 |
 | `project_likes` | `project_id`、`user_id`、`created_at` | 作品和用户组合主键。点赞数从关系表聚合 |
@@ -37,6 +37,37 @@
 作者保存草稿并提交审核。管理员通过后公开，也可驳回或下架。状态取值为 `DRAFT`、`PENDING`、`PUBLISHED`、`REJECTED`、`UNLISTED`。作者和管理员操作均校验版本；公开查询、详情、访问量和点赞均检查作品的公开状态。只接受验证过的 HTTP(S) 外链和 HTTPS 封面。
 
 广场组合分类、平台、发布时间和名称或简介关键词查询。首屏热门作品与主列表使用同一套公开规则。按点赞、浏览或最新排序时附加发布时间和作品 ID 以稳定分页。先用索引与关系聚合，性能有实测需求再添加可重建的计数缓存。后台可按状态和最近提交时间筛选审核。每次提交更新该时间，草稿编辑不改变该时间。
+
+## PostgreSQL 表和字段备注
+
+在创建表与字段的同一份迁移中执行以下 SQL。数据库备注可直接从 PostgreSQL 系统目录读取。新增或改名字段时同步调整对应备注。
+
+```sql
+COMMENT ON TABLE ai_providers IS 'AI 模型供应商目录。';
+COMMENT ON TABLE ai_models IS '各供应商提供的模型目录及启用状态。';
+COMMENT ON TABLE ai_tools IS '产生 AI 用量的客户端和开发工具目录。';
+COMMENT ON TABLE ai_model_prices IS '按模型、币种和生效区间维护的历史计价记录。';
+COMMENT ON TABLE ai_usage_sources IS '用户授权的用量导入来源及其撤销状态。';
+COMMENT ON TABLE ai_usage_events IS '按来源幂等登记的 Token 用量与费用估算记录。';
+COMMENT ON TABLE ai_usage_preferences IS '用户的 AI 用量公开偏好，默认不公开排行。';
+COMMENT ON TABLE projects IS '作品广场的作品内容、发布状态及版本。';
+COMMENT ON TABLE project_categories IS '作品分类目录及展示顺序。';
+COMMENT ON TABLE project_platforms IS '作品运行平台目录及展示顺序。';
+COMMENT ON TABLE project_category_links IS '作品与分类的多对多关系。';
+COMMENT ON TABLE project_platform_links IS '作品与运行平台的多对多关系。';
+COMMENT ON TABLE project_likes IS '用户对作品的点赞关系，每个用户对同一作品最多一条。';
+COMMENT ON TABLE project_view_windows IS '作品浏览去重记录，同一访问者在同一统计窗口只计一次。';
+COMMENT ON TABLE project_reviews IS '作品审核操作及状态变更日志。';
+
+COMMENT ON COLUMN ai_model_prices.effective_from IS '计价生效时间，包含该时刻。';
+COMMENT ON COLUMN ai_model_prices.effective_to IS '计价结束时间，不含该时刻；空值表示暂未设定结束时间。';
+COMMENT ON COLUMN ai_usage_events.source_event_key IS '导入来源内唯一的事件标识，用于去重。';
+COMMENT ON COLUMN ai_usage_events.price_id IS '用量发生时匹配到的计价记录；缺价时为空。';
+COMMENT ON COLUMN ai_usage_events.estimated_cost_usd IS '入库时估算的美元费用；无法估算时为空。';
+COMMENT ON COLUMN ai_usage_preferences.public_leaderboard IS '用户是否同意公开显示在 AI 用量排行榜，默认关闭。';
+COMMENT ON COLUMN projects.status IS '作品流程状态：草稿、待审核、已发布、已驳回或已下架。';
+COMMENT ON COLUMN projects.submitted_at IS '最近一次提交审核的时间，保存草稿时保持原值。';
+```
 
 ## 专家标注与实施顺序
 
