@@ -31,6 +31,9 @@ model User {
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
   sessions     Session[]
   articles     Article[]
+  comments     Comment[]
+  reviews      ArticleReview[]
+  moderations  CommentModeration[]
 
   @@map("users")
 }
@@ -76,6 +79,8 @@ model Article {
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   author       User          @relation(fields: [authorId], references: [id])
   tags         ArticleTag[]
+  comments     Comment[]
+  reviews      ArticleReview[]
 
   @@index([status, publishedAt, id])
   @@index([authorId, status, updatedAt])
@@ -103,4 +108,69 @@ model ArticleTag {
   @@id([articleId, tagId])
   @@index([tagId, articleId])
   @@map("article_tags")
+}
+
+enum ReviewAction {
+  SUBMIT
+  APPROVE
+  REJECT
+  UNLIST
+  RETURN_TO_DRAFT
+}
+
+enum CommentStatus {
+  VISIBLE
+  HIDDEN
+}
+
+model ArticleReview {
+  id               String        @id @default(uuid()) @db.Uuid
+  articleId        String        @map("article_id") @db.Uuid
+  actorId          String        @map("actor_id") @db.Uuid
+  articleVersion   Int           @map("article_version")
+  action           ReviewAction
+  fromStatus       ArticleStatus @map("from_status")
+  toStatus         ArticleStatus @map("to_status")
+  fromReviewStatus ReviewStatus  @map("from_review_status")
+  toReviewStatus   ReviewStatus  @map("to_review_status")
+  reason           String?
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  article          Article       @relation(fields: [articleId], references: [id])
+  actor            User          @relation(fields: [actorId], references: [id])
+
+  @@unique([articleId, articleVersion])
+  @@index([articleId, createdAt])
+  @@map("article_review_logs")
+}
+
+model Comment {
+  id          String              @id @default(uuid()) @db.Uuid
+  articleId   String              @map("article_id") @db.Uuid
+  authorId    String              @map("author_id") @db.Uuid
+  body        String
+  status      CommentStatus       @default(VISIBLE)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  article     Article             @relation(fields: [articleId], references: [id])
+  author      User                @relation(fields: [authorId], references: [id])
+  moderations CommentModeration[]
+
+  @@index([articleId, status, createdAt, id])
+  @@index([status, createdAt, id])
+  @@map("comments")
+}
+
+model CommentModeration {
+  id         String        @id @default(uuid()) @db.Uuid
+  commentId  String        @map("comment_id") @db.Uuid
+  adminId    String        @map("admin_id") @db.Uuid
+  fromStatus CommentStatus @map("from_status")
+  toStatus   CommentStatus @map("to_status")
+  reason     String?
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  comment    Comment       @relation(fields: [commentId], references: [id])
+  admin      User          @relation(fields: [adminId], references: [id])
+
+  @@index([commentId, createdAt])
+  @@map("comment_moderation_logs")
 }

@@ -29,7 +29,7 @@ const decodeCursor = (value: string, tag: string, word: string) => {
   } catch { throw new ApiError(400,'INVALID_CURSOR','分页参数无效'); }
 };
 
-export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: ReturnType<typeof security>, protectedWrite: preHandlerHookHandler[], directPublish: boolean) {
+export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: ReturnType<typeof security>, protectedWrite: preHandlerHookHandler[]) {
   const write = [...protectedWrite,auth.requireUser];
   const tagCheck = async (tagIds: string[]) => {
     if (await db.tag.count({where:{id:{in:tagIds}}}) !== tagIds.length) throw new ApiError(400,'UNKNOWN_TAG','存在无效标签');
@@ -71,7 +71,8 @@ export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: R
   app.get<{Params:Identified}>('/api/me/articles/:id',{preHandler:auth.requireUser,schema:{params:idSchema}},async request=>{
     const row=await db.article.findFirst({where:{id:request.params.id,authorId:request.actor!.id},select:draftSelect});
     if (!row) throw missing();
-    return row;
+    const review = await db.articleReview.findFirst({where:{articleId:row.id,action:{in:['REJECT','UNLIST']}},orderBy:{articleVersion:'desc'},select:{reason:true}});
+    return {...row,reason:review?.reason ?? null};
   });
   app.post<{Body:EditorInput}>('/api/articles',{preHandler:write,schema:{body:object(articleFields,['title','bodyMarkdown','tagIds'])}},async(request,reply)=>{
     const {title,bodyMarkdown,summary,tagIds}=request.body;
@@ -98,18 +99,5 @@ export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: R
       }
       return tx.article.findUniqueOrThrow({where:{id},select:draftSelect});
     });
-  });
-  if (directPublish) app.post<{Params:Identified;Body:{version:number}}>('/api/dev/articles/:id/publish',{
-    preHandler:write,schema:{params:idSchema,body:object({version:versionSchema})},
-  },async request=>{
-    const {id}=request.params;
-    const {version}=request.body;
-    const authorId=request.actor!.id;
-    const row=await owned(id,authorId);
-    if (!row.title.trim() || !row.bodyMarkdown.trim()) throw new ApiError(400,'INCOMPLETE_ARTICLE','请填写标题和正文');
-    const updated=await db.article.updateMany({where:{id,authorId,version,status:'DRAFT',reviewStatus:'NOT_SUBMITTED'},
-      data:{status:'PUBLISHED',reviewStatus:'APPROVED',publishedAt:new Date(),version:{increment:1}}});
-    if (!updated.count) throw conflict();
-    return db.article.findUniqueOrThrow({where:{id},select:draftSelect});
   });
 }

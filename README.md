@@ -6,4 +6,4 @@ M1 提供 React 注册登录、Fastify API、Prisma 和 PostgreSQL 用户与会�
 
 集成测试要求独立 PostgreSQL 测试库，迁移后以 TEST_DATABASE_URL 指定。浏览器测试使用 Playwright Chromium，先运行 npx playwright install chromium，再运行 npm run test:browser:auth。
 
-M2 提供创作者草稿、标签、文章列表及详情。仅开发环境可用 ENABLE_DIRECT_PUBLISH=true 启用临时发布。
+M3 由 /admin/ 提供文章审核与评论管理。文章由作者提交，管理员审核通过后公开。

@@ -106,16 +106,31 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
       setRow(saved);
       client.setQueryData(['draft',saved.id,saved.author.id],saved);
       await client.invalidateQueries({queryKey:['creator']});
-      if(action==='publish') {
-        saved=await api<Article>('/api/dev/articles/'+saved.id+'/publish','POST',{version:saved.version});
-        await client.invalidateQueries({queryKey:['articles']});
-        navigate('/articles/'+saved.id);
+      if(action==='submit') {
+        saved=await api<Article>('/api/articles/'+saved.id+'/submit','POST',{version:saved.version});
+        setRow(saved);
+        client.setQueryData(['draft',saved.id,saved.author.id],saved);
+        await client.invalidateQueries({queryKey:['creator']});
+        setStatus('已提交审核');
+        if(!article)navigate('/creator/articles/'+saved.id+'/edit',{replace:true});
       }else{setStatus('草稿已保存');if(!article)navigate('/creator/articles/'+saved.id+'/edit',{replace:true});}
     }catch(error){setFailure(error instanceof Error?error.message:'保存失败，请重试');}
     finally{setBusy(false);}
   }
+  async function returnToDraft() {
+    if (!row) return;
+    setBusy(true);setFailure('');
+    try {
+      const saved=await api<Article>('/api/articles/'+row.id+'/return-to-draft','POST',{version:row.version});
+      setRow(saved);client.setQueryData(['draft',saved.id,saved.author.id],saved);
+      await client.invalidateQueries({queryKey:['creator']});
+    } catch(error) { setFailure(error instanceof Error?error.message:'操作失败'); }
+    finally {setBusy(false);}
+  }
   return <main className="surface work editor"><div className="work-title"><h1>{row?'编辑文章':'写文章'}</h1><Link to="/creator/articles">我的文章</Link></div>
     {row&&<p className="meta">{statusText(row)} · 版本 {row.version}</p>}
+    {row?.reason&&(row.reviewStatus==='REJECTED'||row.status==='UNLISTED')&&<p className="error">处理原因：{row.reason}</p>}
+    {row?.status==='UNLISTED'&&<button className="subtle" onClick={returnToDraft} disabled={busy}>转回草稿</button>}
     <form onSubmit={save}>
       <label htmlFor="title">标题</label><input id="title" maxLength={160} value={title} disabled={busy||readOnly} onChange={event=>setTitle(event.target.value)}/>
       <label htmlFor="summary">摘要</label><input id="summary" maxLength={500} value={summary} disabled={busy||readOnly} onChange={event=>setSummary(event.target.value)}/>
@@ -123,7 +138,7 @@ function ArticleForm({article,tags}:{article?:Article;tags:Tag[]}) {
       <div className="work-title"><label htmlFor="body">Markdown 正文</label><button type="button" className="subtle" aria-pressed={preview} onClick={()=>setPreview(!preview)}>{preview?'返回编辑':'预览'}</button></div>
       {preview?<div className="preview"><Markdown source={body}/></div>:<textarea id="body" rows={16} maxLength={60000} value={body} disabled={busy||readOnly} onChange={event=>setBody(event.target.value)}/>}
       {failure&&<p className="error" role="alert">{failure}</p>}{status&&<p role="status">{status}</p>}
-      {!readOnly&&<div className="editor-actions"><button type="submit" className="subtle" disabled={busy}>保存草稿</button><button type="submit" value="publish" className="primary" disabled={busy||!title.trim()||!body.trim()}>发布</button></div>}
+      {!readOnly&&<div className="editor-actions"><button type="submit" className="subtle" disabled={busy}>保存草稿</button><button type="submit" value="submit" className="primary" disabled={busy||!title.trim()||!body.trim()}>提交审核</button></div>}
     </form>
   </main>;
 }
