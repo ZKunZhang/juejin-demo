@@ -57,6 +57,15 @@ try {
       }
     });
   }
+  if (process.env.ENABLE_DEMO_PULSES === 'true') {
+    const author = await db.user.findUniqueOrThrow({ where: { username: 'reader_gamma' } });
+    const tag = await db.tag.findUniqueOrThrow({ where: { slug: 'tools' } });
+    const demoId = 'f03c5e20-9ac8-446c-a05c-3ffc7c68f690';
+    await db.pulse.upsert({ where: { id: demoId }, update: {}, create: {
+      id: demoId, authorId: author.id, body: '今天整理了一份开发工作台。你最近用得最多的工具是什么？',
+      images: ['/sample.png'], featured: true, tags: { create: { tagId: tag.id } },
+    } });
+  }
   console.log('演示账号已初始化：', accounts.map(account => account.username).join('、'));
 } finally {
   await db.$disconnect();

@@ -17,7 +17,8 @@
     "test:browser:auth": "node --env-file-if-exists=.env scripts/browser-auth.mjs",
     "test:browser:community": "node --env-file-if-exists=.env scripts/browser-community.mjs",
     "db:local": "node scripts/local-postgres.mjs",
-    "test:browser:activities": "node --env-file-if-exists=.env scripts/browser-activities.mjs"
+    "test:browser:activities": "node --env-file-if-exists=.env scripts/browser-activities.mjs",
+    "test:browser:pulses": "node --env-file-if-exists=.env scripts/browser-pulses.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.5",

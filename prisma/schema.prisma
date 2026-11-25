@@ -39,6 +39,9 @@ model User {
   following    UserFollow[] @relation("Follower")
   followers    UserFollow[] @relation("Followee")
   activities   Activity[]
+  pulses       Pulse[]
+  pulseLikes   PulseLike[]
+  checkins     Checkin[]
 
   @@map("users")
 }
@@ -103,6 +106,7 @@ model Tag {
   name      String       @db.VarChar(60)
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   articles  ArticleTag[]
+  pulses    PulseTag[]
 
   @@map("tags")
 }
@@ -260,4 +264,53 @@ model ArticleViewWindow {
   @@id([articleId, viewerKey])
   @@index([lastCountedAt])
   @@map("article_view_windows")
+}
+
+model Pulse {
+  id        String      @id @default(uuid()) @db.Uuid
+  authorId  String      @map("author_id") @db.Uuid
+  body      String
+  images    String[]    @default([])
+  featured  Boolean     @default(false)
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  author    User        @relation(fields: [authorId], references: [id])
+  tags      PulseTag[]
+  likes     PulseLike[]
+
+  @@index([createdAt, id])
+  @@index([authorId, createdAt])
+  @@map("pulses")
+}
+
+model PulseTag {
+  pulseId String @map("pulse_id") @db.Uuid
+  tagId   String @map("tag_id") @db.Uuid
+  pulse   Pulse  @relation(fields: [pulseId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id])
+
+  @@id([pulseId, tagId])
+  @@index([tagId, pulseId])
+  @@map("pulse_tags")
+}
+
+model PulseLike {
+  userId    String @map("user_id") @db.Uuid
+  pulseId   String @map("pulse_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pulse     Pulse  @relation(fields: [pulseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, pulseId])
+  @@index([pulseId, userId])
+  @@map("pulse_likes")
+}
+
+model Checkin {
+  userId    String   @map("user_id") @db.Uuid
+  localDate DateTime @map("local_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, localDate])
+  @@map("checkins")
 }

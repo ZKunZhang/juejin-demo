@@ -56,5 +56,5 @@ export function security(db: PrismaClient, origins: string[], secure: boolean) {
     reply.clearCookie(sessionName, cookieOptions);
   }
 
-  return { requireUser, requireAdmin, requireOrigin, cookieOptions, clearSession };
+  return { findActor, requireUser, requireAdmin, requireOrigin, cookieOptions, clearSession };
 }
