@@ -15,6 +15,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "test:browser:auth": "node --env-file-if-exists=.env scripts/browser-auth.mjs",
+    "test:browser:community": "node --env-file-if-exists=.env scripts/browser-community.mjs",
     "db:local": "node scripts/local-postgres.mjs"
   },
   "dependencies": {

@@ -17,6 +17,7 @@ export const articleSelect = {
   id:true,title:true,summary:true,author:{select:authorSelect},
   tags:{select:{tag:{select:{id:true,name:true,slug:true}}}},
   publishedAt:true,updatedAt:true,
+  _count:{select:{likes:true,comments:{where:{status:"VISIBLE"}}}},
 } as const;
 export const draftSelect = { ...articleSelect, bodyMarkdown:true, status:true, reviewStatus:true, version:true } as const;
 export const conflict = () => new ApiError(409,'STATE_CONFLICT','状态已变化，请刷新后重试');

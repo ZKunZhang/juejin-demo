@@ -34,6 +34,10 @@ model User {
   comments     Comment[]
   reviews      ArticleReview[]
   moderations  CommentModeration[]
+  likes        ArticleLike[]
+  bookmarks    ArticleBookmark[]
+  following    UserFollow[] @relation("Follower")
+  followers    UserFollow[] @relation("Followee")
 
   @@map("users")
 }
@@ -81,6 +85,8 @@ model Article {
   tags         ArticleTag[]
   comments     Comment[]
   reviews      ArticleReview[]
+  likes        ArticleLike[]
+  bookmarks    ArticleBookmark[]
 
   @@index([status, publishedAt, id])
   @@index([authorId, status, updatedAt])
@@ -173,4 +179,40 @@ model CommentModeration {
 
   @@index([commentId, createdAt])
   @@map("comment_moderation_logs")
+}
+
+model ArticleLike {
+  userId    String   @map("user_id") @db.Uuid
+  articleId String   @map("article_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, articleId])
+  @@index([articleId, userId])
+  @@map("article_likes")
+}
+
+model ArticleBookmark {
+  userId    String   @map("user_id") @db.Uuid
+  articleId String   @map("article_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, articleId])
+  @@index([articleId, userId])
+  @@map("article_bookmarks")
+}
+
+model UserFollow {
+  followerId String   @map("follower_id") @db.Uuid
+  followeeId String   @map("followee_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  follower   User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followee   User     @relation("Followee", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followeeId])
+  @@index([followeeId, followerId])
+  @@map("user_follows")
 }
