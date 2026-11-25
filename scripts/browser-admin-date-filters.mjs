@@ -6,6 +6,8 @@ const browser=await chromium.launch();
 try{
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  await page.goto(base+'/admin/login');
+ assert.match(await page.getByLabel('用户名').getAttribute('class'),/\bant-input\b/);
+ assert.match(await page.getByLabel('密码',{exact:true}).getAttribute('class'),/\bant-input\b/);
  await page.getByLabel('用户名').fill('admin_demo');
  await page.getByLabel('密码',{exact:true}).fill(process.env.DEMO_ADMIN_PASSWORD);
  await page.getByRole('button',{name:'登录',exact:true}).click();
@@ -26,12 +28,15 @@ try{
    assert.equal(response.status(),200);
    const [source]=await response.json();
    assert(source,kind+' demo comments required');
-   await page.getByRole('combobox',{name:label,exact:true}).click();
+   const sourceSelect=page.getByRole('combobox',{name:label,exact:true});
+   assert(await sourceSelect.evaluate(element=>!!element.closest('.ant-select')));
+   await sourceSelect.click();
    const request=page.waitForResponse(response=>new URL(response.url()).pathname===path&&new URL(response.url()).searchParams.get(param)===source.id);
    await page.getByRole('option',{name:source.label,exact:true}).first().click();
    assert.equal((await request).status(),200);
  }
  await chooseSource('文章来源','/api/admin/comments','articleId','Article');
+ assert.match(await page.getByLabel('隐藏原因').first().getAttribute('class'),/\bant-input\b/);
  await page.getByRole('combobox',{name:'内容类型',exact:true}).click();
  await page.getByRole('option',{name:'沸点',exact:true}).click();
  await page.waitForURL(/comments\?type=pulse/);

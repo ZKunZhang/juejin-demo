@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, ConfigProvider, Menu } from 'antd';
+import { Button, ConfigProvider, Input, Menu } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -58,7 +58,7 @@ function AdminShell() {
   const [failure,setFailure]=useState('');
   async function logout() {setFailure('');try{await api('/api/auth/logout','POST');update(null);}catch(error){setFailure(errors(error));}}
   if(loading||error)return <main className="surface work"><Pending error={error} retry={retry}/></main>;
-  if(!user)return <Routes><Route path="/login" element={<AuthPage admin/>}/><Route path="*" element={<Navigate to="/login" replace/>}/></Routes>;
+  if(!user)return <Routes><Route path="/login" element={<AuthPage admin adminInput={Input}/>}/><Route path="*" element={<Navigate to="/login" replace/>}/></Routes>;
   if(user.role!=='ADMIN')return <main className="surface work"><h1>没有后台访问权限</h1><button className="subtle" onClick={logout}>退出并换账号</button>{failure&&<p className="error" role="alert">{failure}</p>}</main>;
   return <div className="admin-shell"><header className="site-header admin-header"><div className="header-inner"><Link className="wordmark" to="/"><span className="brand-mark">◇</span>码栈管理后台</Link><div className="account"><span className="nickname">{user.displayName}</span><Button ghost type="primary" onClick={logout}>退出</Button></div></div></header>
     <main className="admin admin-grid"><AdminNavigation/><div className="surface admin-panel">
@@ -154,7 +154,7 @@ function ArticleActionDialog({article,action,close,done}:{
       } catch(error) {setFailure(errors(error));}
       finally {setBusy(false);}
     }}>
-      {requiresReason && <label>{label + '原因'}<textarea rows={3} maxLength={1000} disabled={busy} required value={reason} onChange={event=>setReason(event.target.value)}/></label>}
+      {requiresReason && <label>{label + '原因'}<Input.TextArea rows={3} maxLength={1000} disabled={busy} required value={reason} onChange={event=>setReason(event.target.value)}/></label>}
       {failure && <p className="error" role="alert">{failure}</p>}
       <div className="editor-actions"><button className="primary" disabled={busy || (requiresReason && !reason.trim())} type="submit">确认{label}</button></div>
     </form>
@@ -187,7 +187,7 @@ function ReviewArticle() {
     {showComments && <AdminDialog title="管理评论" close={()=>setShowComments(false)}><Comments articleId={row.id}/></AdminDialog>}
     <Markdown source={row.bodyMarkdown}/>
     {articleActions(row).length > 0 && <section className="admin-action">
-      {row.status!=='UNLISTED' && <label>审核原因<textarea value={reason} maxLength={1000} rows={3} onChange={event=>setReason(event.target.value)}/></label>}
+      {row.status!=='UNLISTED' && <label>审核原因<Input.TextArea value={reason} maxLength={1000} rows={3} onChange={event=>setReason(event.target.value)}/></label>}
       <div className="editor-actions">{articleActions(row).map(action => <button key={action}
         className={action==='REJECT'?'subtle':'primary'}
         disabled={busy || ((action==='REJECT'||action==='UNLIST') && !reason.trim())}
@@ -283,7 +283,7 @@ function CommentRow({comment,path,scoped,refresh}:{comment:Comment|PulseComment;
       <span className="meta">{comment.createdAt?adminTime(comment.createdAt)+' · ':''}{visible?'可见':'已隐藏'}{'parent' in comment && comment.parent &&
         (comment.parent.status === 'HIDDEN' ? ' · 回复 · 所属评论已隐藏' : ' · 回复')}</span>
     </>}/>
-    {visible&&<label>隐藏原因<textarea rows={2} value={reason} disabled={busy} maxLength={1000} onChange={event=>setReason(event.target.value)}/></label>}
+    {visible&&<label>隐藏原因<Input.TextArea rows={2} value={reason} disabled={busy} maxLength={1000} onChange={event=>setReason(event.target.value)}/></label>}
     <button className="subtle" disabled={busy||(visible&&!reason.trim())} onClick={moderate}>{visible?'隐藏评论':'恢复评论'}</button>
     {failure&&<p className="error" role="alert">{failure} <button className="subtle" onClick={()=>void refresh()}>刷新</button></p>}
   </article>;

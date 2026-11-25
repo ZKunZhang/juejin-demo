@@ -1,5 +1,6 @@
+import type { Input, InputRef } from 'antd';
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { Link, createPath, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, HttpError, type User } from './api';
 import { useSession } from './session';
@@ -11,9 +12,10 @@ function safeReturn(value: string | null) {
 
 export { safeReturn };
 
-export function AuthPage({ signup = false, admin = false, dismiss }: {
+export function AuthPage({ signup = false, admin = false, adminInput, dismiss }: {
   signup?: boolean;
   admin?: boolean;
+  adminInput?: typeof Input;
   dismiss?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -47,17 +49,24 @@ export function AuthPage({ signup = false, admin = false, dismiss }: {
       } else setFormError(error instanceof HttpError ? error.message : '连接失败，请重试');
     }
   }
+  const TextInput = adminInput ?? 'input';
+  const usernameField = register('username', { required: '请输入用户名', pattern: { value: /^[a-zA-Z0-9_]{3,32}$/, message: '使用 3–32 位字母、数字或下划线' } });
+  const passwordField = register('password', { required: '请输入密码', minLength: { value: 8, message: '密码至少 8 个字符' }, maxLength: { value: 128, message: '密码最多 128 个字符' } });
+  const connectInput = ({ ref, ...field }: UseFormRegisterReturn) => ({
+    ...field,
+    ref: (element: HTMLInputElement | InputRef | null) => ref(element && 'input' in element ? element.input : element),
+  });
   const form = <>
       <h2 id="auth-title">{signup ? '创建账号' : '登录'}</h2>
       <form onSubmit={handleSubmit(submit)} noValidate>
         <label htmlFor="username">用户名</label>
-        <input id="username" autoComplete="username" placeholder="字母、数字或下划线" aria-invalid={!!errors.username} aria-describedby={errors.username ? 'username-error' : undefined} {...register('username', { required: '请输入用户名', pattern: { value: /^[a-zA-Z0-9_]{3,32}$/, message: '使用 3–32 位字母、数字或下划线' } })}/>
+        <TextInput id="username" autoComplete="username" placeholder="字母、数字或下划线" aria-invalid={!!errors.username} aria-describedby={errors.username ? 'username-error' : undefined} {...connectInput(usernameField)}/>
         {errors.username && <small className="error" id="username-error">{errors.username.message}</small>}
         {signup && <><label htmlFor="displayName">昵称</label>
         <input id="displayName" autoComplete="nickname" maxLength={80} aria-invalid={!!errors.displayName} {...register('displayName', { validate: value => !!value.trim() || '请输入昵称' })}/>
         {errors.displayName && <small className="error" role="alert">{errors.displayName.message}</small>}</>}
         <label htmlFor="password">密码</label><div className="password-field">
-        <input id="password" type={showPassword ? 'text' : 'password'} autoComplete={signup ? 'new-password' : 'current-password'} aria-invalid={!!errors.password} aria-describedby={errors.password ? 'password-error' : undefined} {...register('password', { required: '请输入密码', minLength: { value: 8, message: '密码至少 8 个字符' }, maxLength: { value: 128, message: '密码最多 128 个字符' } })}/>
+        <TextInput id="password" type={showPassword ? 'text' : 'password'} autoComplete={signup ? 'new-password' : 'current-password'} aria-invalid={!!errors.password} aria-describedby={errors.password ? 'password-error' : undefined} {...connectInput(passwordField)}/>
         <button className="subtle" type="button" onClick={() => setShowPassword(!showPassword)} aria-pressed={showPassword}>{showPassword ? '隐藏' : '显示'}</button></div>
         {errors.password && <small className="error" id="password-error">{errors.password.message}</small>}
         {formError && <p className="error" role="alert">{formError}</p>}

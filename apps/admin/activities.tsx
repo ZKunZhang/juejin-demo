@@ -1,3 +1,4 @@
+import { Input } from 'antd';
 import { AdminPageSwitch } from './page-switch';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -84,21 +85,21 @@ function ActivityForm({item,reload}:{item?:Activity;reload:()=>Promise<void>}) {
         <div className="activity-editor-fields">
           <section className="activity-editor-section" aria-labelledby="activity-content-title">
             <h2 id="activity-content-title">活动内容</h2>
-            <label htmlFor="activity-title">活动标题</label><input id="activity-title" name="title" required maxLength={120} value={title} onChange={event=>setTitle(event.target.value)}/>
-            <label htmlFor="activity-summary">活动摘要</label><textarea id="activity-summary" name="summary" required maxLength={300} rows={3} value={summary} onChange={event=>setSummary(event.target.value)}/>
-            <label htmlFor="activity-url">活动链接</label><input id="activity-url" name="url" type="url" maxLength={1000} defaultValue={item?.url||''} placeholder="https://"/>
-            <label htmlFor="activity-cover">活动封面（HTTPS 图片地址）</label><input id="activity-cover" name="coverUrl" type="url" maxLength={2000} value={cover} onChange={event=>setCover(event.target.value)} placeholder="https://"/>
+            <label htmlFor="activity-title">活动标题</label><Input id="activity-title" name="title" required maxLength={120} value={title} onChange={event=>setTitle(event.target.value)}/>
+            <label htmlFor="activity-summary">活动摘要</label><Input.TextArea id="activity-summary" name="summary" required maxLength={300} rows={3} value={summary} onChange={event=>setSummary(event.target.value)}/>
+            <label htmlFor="activity-url">活动链接</label><Input id="activity-url" name="url" type="url" maxLength={1000} defaultValue={item?.url||''} placeholder="https://"/>
+            <label htmlFor="activity-cover">活动封面（HTTPS 图片地址）</label><Input id="activity-cover" name="coverUrl" type="url" maxLength={2000} value={cover} onChange={event=>setCover(event.target.value)} placeholder="https://"/>
           </section>
           <section className="activity-editor-section" aria-labelledby="activity-display-title">
             <h2 id="activity-display-title">展示设置</h2>
             <div className="activity-editor-pair">
               <div><p className="activity-status-label">发布状态</p><AppSelect label="发布状态" value={status} onChange={setStatus}
                 options={(Object.keys(labels) as Status[]).map(value=>({value,label:labels[value]}))}/></div>
-              <div><label htmlFor="activity-sort">展示顺序（由小到大）</label><input id="activity-sort" type="number" name="sortOrder" min={0} max={9999} step={1} required defaultValue={item?.sortOrder||0}/></div>
+              <div><label htmlFor="activity-sort">展示顺序（由小到大）</label><Input id="activity-sort" type="number" name="sortOrder" min={0} max={9999} step={1} required defaultValue={item?.sortOrder||0}/></div>
             </div>
             <div className="activity-editor-pair">
-              <div><label htmlFor="activity-from">展示开始（本地时间）</label><input id="activity-from" name="visibleFrom" type="datetime-local" defaultValue={localDate(item?.visibleFrom)}/></div>
-              <div><label htmlFor="activity-to">展示结束（本地时间）</label><input id="activity-to" name="visibleTo" type="datetime-local" defaultValue={localDate(item?.visibleTo)}/></div>
+              <div><label htmlFor="activity-from">展示开始（本地时间）</label><Input id="activity-from" name="visibleFrom" type="datetime-local" defaultValue={localDate(item?.visibleFrom)}/></div>
+              <div><label htmlFor="activity-to">展示结束（本地时间）</label><Input id="activity-to" name="visibleTo" type="datetime-local" defaultValue={localDate(item?.visibleTo)}/></div>
             </div>
             <p className="meta activity-schedule-hint">已发布的活动在设定时段展示。开始或结束时间留空时，该时间不设限制。</p>
           </section>

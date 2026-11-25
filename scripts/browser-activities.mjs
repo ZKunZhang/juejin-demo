@@ -17,6 +17,9 @@ try {
   await admin.waitForURL(base+'/admin/articles');
   await admin.getByRole('link',{name:'活动管理',exact:true}).click();
   await admin.getByRole('link',{name:'新建活动',exact:true}).click();
+  for (const label of ['活动标题','活动摘要','活动链接','活动封面（HTTPS 图片地址）','展示顺序（由小到大）','展示开始（本地时间）','展示结束（本地时间）']) {
+    await expect(admin.getByLabel(label)).toHaveClass(/\bant-input\b/);
+  }
   await admin.getByLabel('活动标题').fill(title);
   await admin.getByLabel('活动摘要').fill('通过后台创建和发布');
   const preview=admin.getByRole('complementary',{name:'卡片预览'});

@@ -1,3 +1,4 @@
+import { Input } from 'antd';
 import { AdminPageSwitch } from './page-switch';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -128,7 +129,7 @@ function PulseDialog({ pulse, featured, close, refresh, done }: {
         {pulse.featured ? '取消精选' : '设为精选'}
       </button>
     </div> : actionable && <>
-      <label>{pending ? '拒绝理由（拒绝时必填）' : '下架原因'}<textarea rows={2} maxLength={1000} disabled={busy} value={reason} onChange={event => setReason(event.target.value)}/></label>
+      <label>{pending ? '拒绝理由（拒绝时必填）' : '下架原因'}<Input.TextArea rows={2} maxLength={1000} disabled={busy} value={reason} onChange={event => setReason(event.target.value)}/></label>
       <div className="editor-actions">{pending ? <>
         <button className="subtle" disabled={busy || !reason.trim()} onClick={() => void moderate('REJECTED')}>审核拒绝</button>
         <button className="primary" disabled={busy} onClick={() => void moderate('PUBLISHED')}>审核通过</button>
