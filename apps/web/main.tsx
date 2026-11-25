@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Link, Route, Routes, useLocation, useNavigate, createPath, matchPath, parsePath, type Location } from 'react-router-dom';
+import { BrowserRouter, Link, NavLink, Route, Routes, useLocation, useNavigate, createPath, matchPath, parsePath, type Location } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthPage, safeReturn } from './auth-page';
 import { SessionProvider, useSession } from './session';
@@ -15,6 +15,7 @@ import { ArticlePage, Creator, Editor, Home } from './articles';
 import './styles.css';
 import './community.css';
 import { HeaderSearch } from './search';
+import { AiUsage, ExpertAnnotation, ProjectShowcase } from './features/expansion/expansion-pages';
 
 const client = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: false } } });
 function Header({ location }: { location: Location }) {
@@ -48,7 +49,16 @@ function Header({ location }: { location: Location }) {
   const authState = { background: location };
   return <header className={hidden ? 'site-header site-header-hidden' : 'site-header'}><div className="header-inner">
     <Link className="wordmark" to="/"><span className="brand-mark" aria-hidden="true">◇</span>码栈</Link>
-    <nav aria-label="主导航"><Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link><Link to="/pulses" aria-current={location.pathname==='/pulses'?'page':undefined}>沸点</Link><Link to="/courses" aria-current={location.pathname.startsWith('/courses')?'page':undefined}>课程</Link></nav><HeaderSearch key={location.pathname + location.search} initial={location.pathname === '/' ? new URLSearchParams(location.search).get('q') ?? '' : ''}/>
+    <nav className="community-main-nav" aria-label="主导航">
+      <Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link>
+      <Link to="/pulses" aria-current={location.pathname === '/pulses' ? 'page' : undefined}>沸点</Link>
+      <Link to="/courses" aria-current={location.pathname.startsWith('/courses') ? 'page' : undefined}>课程</Link>
+      <a href="https://juejin.cn/download#feature">APP</a>
+      <NavLink to="/ai-usage">AI 用量</NavLink>
+      <NavLink to="/projects">作品广场</NavLink>
+      <NavLink to="/expert-annotation">专家标注</NavLink>
+    </nav>
+    <HeaderSearch key={location.pathname + location.search} initial={location.pathname === '/' ? new URLSearchParams(location.search).get('q') ?? '' : ''}/>
     <CreatorMenu/>
     <div className="account">
       {loading ? <span role="status">加载中…</span> : error ? <button className="subtle" onClick={retry}>重试会话</button> : user ? <>
@@ -97,6 +107,11 @@ function WebRoutes() {
     <Route path="/pulses/leaderboard" element={<PulseLeaderboard/>}/>
     <Route path="/user/center/signrank" element={<PulseLeaderboard/>}/>
     <Route path="/articles/:id" element={<ArticlePage/>}/>
+    <Route path="/ai-usage" element={<AiUsage/>}/>
+    <Route path="/ai-usage/leaderboard" element={<AiUsage view="leaderboard"/>}/>
+    <Route path="/ai-usage/prices" element={<AiUsage view="prices"/>}/>
+    <Route path="/projects" element={<ProjectShowcase/>}/>
+    <Route path="/expert-annotation" element={<ExpertAnnotation/>}/>
     <Route path="/notifications" element={<Notifications/>}/>
     <Route path="/creator" element={<CreatorDashboard/>}/>
     <Route path="/creator/articles" element={<Creator/>}/>

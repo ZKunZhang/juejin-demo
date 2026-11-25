@@ -1,0 +1,64 @@
+.community .header-inner > .community-main-nav {
+  min-width: 0;
+  gap: clamp(10px, 1.3vw, 20px);
+}
+.community .header-inner > .community-main-nav a { white-space: nowrap; }
+
+.expansion-page {
+  width: min(1050px, calc(100% - 32px));
+  margin: clamp(20px, 4vw, 46px) auto 60px;
+}
+.expansion-heading {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.expansion-heading h1, .project-intro h1 {
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.15;
+}
+.expansion-tabs, .expansion-periods { display: flex; flex-wrap: wrap; gap: 6px; }
+.expansion-tabs a, .expansion-periods button {
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+.expansion-tabs a[aria-current], .expansion-periods button[aria-pressed="true"] {
+  color: var(--brand);
+  background: var(--selected);
+  border-color: var(--input-line);
+}
+.expansion-notice { margin: 16px 0; color: var(--muted); }
+.usage-metrics, .usage-panels { display: grid; gap: 14px; }
+.usage-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.usage-metrics > div, .usage-panels > section, .expansion-state { padding: clamp(15px, 3vw, 24px); }
+.usage-metrics dt, .usage-panels p, .expansion-state p, .project-intro p { color: var(--muted); }
+.usage-metrics dd { margin: 8px 0 0; font-size: 22px; font-variant-numeric: tabular-nums; }
+.usage-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.usage-panels p, .expansion-state p, .project-intro p { margin-top: 8px; }
+.expansion-state > a { display: inline-block; margin-top: 14px; }
+.project-intro {
+  margin-bottom: 20px;
+  padding: clamp(22px, 5vw, 48px);
+  border-radius: var(--radius);
+  background: linear-gradient(110deg, var(--selected), var(--surface));
+}
+@media (max-width: 1050px) {
+  .community .header-inner { flex-wrap: wrap; }
+  .community .header-inner > .community-main-nav {
+    order: 3;
+    flex: 1 0 100%;
+    overflow-x: auto;
+  }
+}
+@media (max-width: 600px) {
+  .usage-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .usage-panels { grid-template-columns: minmax(0, 1fr); }
+}
