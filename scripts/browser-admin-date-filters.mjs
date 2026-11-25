@@ -38,15 +38,22 @@ try{
  await chooseSource('沸点来源','/api/admin/pulse-comments','pulseId','Pulse');
 
  async function checkRange(path,empty) {
-   await page.getByLabel('开始日期').fill('1900-01-01');
-   await page.getByLabel('结束日期').fill('1900-01-01');
-   const applied=page.waitForResponse(response=>new URL(response.url()).pathname===path&&new URL(response.url()).searchParams.has('from'));
-   await page.getByRole('button',{name:'按日期筛选'}).click();
+   const start=page.getByLabel('开始日期');
+   const end=page.getByLabel('结束日期');
+   await start.fill('1900-01-01');
+   await start.press('Enter');
+   await end.fill('1900-01-01');
+   const applied=page.waitForResponse(response=>{
+     const url=new URL(response.url());
+     return url.pathname===path && url.searchParams.get('from')==='1900-01-01' && url.searchParams.get('to')==='1900-01-01';
+   });
+   await end.press('Enter');
    const result=await applied;
    assert.equal(result.status(),200,await result.text());
    assert.deepEqual((await result.json()).items,[]);
    await page.getByText(empty,{exact:true}).waitFor();
    const reset=page.waitForResponse(response=>new URL(response.url()).pathname===path&&!new URL(response.url()).searchParams.has('from'));
+   await page.locator('.admin-date-range .ant-picker').hover();
    await page.getByRole('button',{name:'清除日期'}).click();
    assert.equal((await reset).status(),200);
  }
@@ -65,5 +72,18 @@ try{
    }
    await checkRange(path,empty);
  }
- console.log('Admin navigation, first-page controls and five date filters passed');
+ const calendarStart=page.getByLabel('开始日期');
+ await calendarStart.click();
+ const calendar=page.locator('.ant-picker-dropdown:visible');
+ const today=calendar.locator('.ant-picker-cell-today');
+ const date=await today.getAttribute('title');
+ assert.match(date,/^\d{4}-\d{2}-\d{2}$/);
+ await today.click();
+ const calendarApplied=page.waitForResponse(response=>{
+   const url=new URL(response.url());
+   return url.pathname==='/api/admin/activities' && url.searchParams.get('from')===date && url.searchParams.get('to')===date;
+ });
+ await calendar.locator(`[title="${date}"]`).click();
+ assert.equal((await calendarApplied).status(),200);
+ console.log('Admin navigation, first-page controls, calendar selection and five date filters passed');
 }finally{await browser.close();}

@@ -15,8 +15,25 @@
   color: inherit;
 }
 
-.admin-date-range .ant-input[type="date"] {
-  width: auto;
+.admin-date-range .admin-date-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.admin-date-range .ant-picker-range {
+  width: 280px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.admin-date-range .ant-picker-range input {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 @media (max-width: 767px) {

@@ -1,5 +1,6 @@
-import { Button, Input } from 'antd';
-import { useId, useState } from 'react';
+import { DatePicker } from 'antd';
+import dayjs from 'dayjs';
+import { useId } from 'react';
 
 export type AdminRange = { from: string; to: string };
 export const emptyRange: AdminRange = { from: '', to: '' };
@@ -12,24 +13,20 @@ export function appendAdminRange(params: URLSearchParams, range: AdminRange) {
 
 export function AdminDateRange({ applied, onApply }: { applied: AdminRange; onApply: (range: AdminRange) => void }) {
   const id = useId();
-  const [range, setRange] = useState(applied);
-  const invalid = !!range.from && !!range.to && range.from > range.to;
-  const changed = range.from !== applied.from || range.to !== applied.to;
-  return <form className="admin-date-range" aria-label="创建日期筛选" onSubmit={event => {
-    event.preventDefault();
-    if (!invalid) onApply(range);
-  }}>
+  return <div className="admin-date-range" role="group" aria-label="创建日期筛选">
     <span className="meta">创建日期（北京时间）</span>
-    <label htmlFor={id+'-from'}>开始日期<Input id={id+'-from'} type="date" value={range.from}
-      onChange={event=>setRange({...range,from:event.target.value})}/></label>
-    <label htmlFor={id+'-to'}>结束日期<Input id={id+'-to'} type="date" value={range.to}
-      onChange={event=>setRange({...range,to:event.target.value})}/></label>
-    <Button type="primary" htmlType="submit" disabled={invalid||!changed}>按日期筛选</Button>
-    {(range.from||range.to||applied.from||applied.to)&&<Button onClick={()=>{
-      setRange(emptyRange);onApply(emptyRange);
-    }}>清除日期</Button>}
-    {invalid&&<p className="error" role="alert">结束日期不能早于开始日期</p>}
-  </form>;
+    <label className="admin-date-label" htmlFor={id+'-from'}>开始日期</label>
+    <label className="admin-date-label" htmlFor={id+'-to'}>结束日期</label>
+    <DatePicker.RangePicker
+      id={{ start: id+'-from', end: id+'-to' }}
+      placeholder={['开始日期', '结束日期']}
+      format="YYYY-MM-DD"
+      allowEmpty={[true, true]}
+      allowClear={{ label: "清除日期" }}
+      value={[applied.from ? dayjs(applied.from) : null, applied.to ? dayjs(applied.to) : null]}
+      onChange={(_, dates) => onApply(dates ? { from: dates[0] ?? '', to: dates[1] ?? '' } : emptyRange)}
+    />
+  </div>;
 }
 
 const formatter = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'medium', timeStyle: 'short' });
