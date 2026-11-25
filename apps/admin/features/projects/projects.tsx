@@ -11,14 +11,14 @@ import { AdminPageSwitch } from '../../shared/ui/page-switch';
 type Project = {
   id: string; title: string; summary: string; bodyMarkdown: string;
   projectUrl: string; repositoryUrl: string | null;
-  status: 'DRAFT' | 'PENDING' | 'PUBLISHED' | 'REJECTED' | 'UNLISTED'; version: number;
+  status: 'DRAFT' | 'PENDING' | 'PUBLISHED' | 'REJECTED' | 'UNLISTED' | 'DELETED'; version: number;
   author: { id: string; displayName: string }; submittedAt: string | null;
   viewCount: number; likeCount: number;
 };
-const statuses = { DRAFT: '草稿', PENDING: '待审核', PUBLISHED: '已发布', REJECTED: '已驳回', UNLISTED: '已下架' };
+const statuses = { DRAFT: '草稿', PENDING: '待审核', PUBLISHED: '已发布', REJECTED: '已驳回', UNLISTED: '已下架', DELETED: '已删除' };
 
 export function AdminProjects() {
-  const [status, setStatus] = useState('PENDING');
+  const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [range, setRange] = useState(emptyRange);
   const [selected, setSelected] = useState<Project>();
@@ -68,7 +68,7 @@ export function AdminProjects() {
           { title: '状态', render: (_, item) => <Tag>{statuses[item.status]}</Tag> },
           { title: '提交时间', render: (_, item) => item.submittedAt ? adminTime(item.submittedAt) : '未提交' },
           { title: '操作', render: (_, item) => <Button onClick={() => { setSelected(item); setNotice(''); }}>
-            {item.status === 'PENDING' ? '审核作品' : '查看作品'}
+            {item.status === 'PENDING' ? '审核作品' : item.status === 'DELETED' ? '查看作品' : '管理作品'}
           </Button> },
         ]}/>
       <AdminPageSwitch page={page} more={list.data.hasMore} update={setPage}/>
@@ -88,7 +88,8 @@ function ProjectReview({ item, close, done, refresh }: {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState('');
   const [conflict, setConflict] = useState(false);
-  async function review(status: 'PUBLISHED' | 'REJECTED' | 'UNLISTED') {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  async function review(status: 'PUBLISHED' | 'REJECTED' | 'UNLISTED' | 'DELETED') {
     setBusy(true);
     setFailure('');
     setConflict(false);
@@ -98,7 +99,10 @@ function ProjectReview({ item, close, done, refresh }: {
         status,
         ...(reason.trim() ? { reason: reason.trim() } : {}),
       });
-      await done(status === 'PUBLISHED' ? '作品已通过审核并发布' : status === 'REJECTED' ? '作品已驳回' : '作品已下架');
+      const notice = status === 'PUBLISHED'
+        ? (item.status === 'UNLISTED' ? '作品已重新上架' : '作品已通过审核并发布')
+        : status === 'REJECTED' ? '作品已驳回' : status === 'UNLISTED' ? '作品已下架' : '作品已删除';
+      await done(notice);
     } catch (error) {
       setFailure(error instanceof Error ? error.message : '处理失败，请重试');
       setConflict(error instanceof HttpError && error.status === 409);
@@ -132,6 +136,16 @@ function ProjectReview({ item, close, done, refresh }: {
         </> : <Button danger disabled={busy || !reason.trim()} onClick={() => void review('UNLISTED')}>下架作品</Button>}
       </div>
     </>}
+    {item.status === 'UNLISTED' && <div className="editor-actions">
+      <Button type="primary" loading={busy} onClick={() => void review('PUBLISHED')}>上架作品</Button>
+    </div>}
+    {item.status !== 'DELETED' && <div className="editor-actions">
+      {confirmDelete ? <>
+        <span>删除后作品将从广场和作者列表移除。</span>
+        <Button disabled={busy} onClick={() => setConfirmDelete(false)}>取消删除</Button>
+        <Button danger type="primary" loading={busy} onClick={() => void review('DELETED')}>确认删除</Button>
+      </> : <Button danger disabled={busy} onClick={() => setConfirmDelete(true)}>删除作品</Button>}
+    </div>}
     {failure && <p className="error" role="alert">{failure}</p>}
     {conflict && <Button disabled={busy} onClick={() => void loadLatest()}>加载最新状态</Button>}
   </AdminDialog>;

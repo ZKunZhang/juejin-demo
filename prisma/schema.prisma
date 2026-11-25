@@ -572,6 +572,7 @@ enum ProjectStatus {
   PUBLISHED
   REJECTED
   UNLISTED
+  DELETED
 }
 
 /// 作品广场的作品内容、发布状态及版本。

@@ -1,20 +1,19 @@
 .ai-page { width: min(1120px, calc(100% - 32px)); margin: 28px auto 60px; }
 .ai-heading { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: center; margin-bottom: 22px; }
 .ai-heading h1 { font-size: clamp(26px, 4vw, 40px); }
-.ai-heading p, .ai-caption { color: var(--muted); font-size: 14px; }
+.ai-caption { color: var(--muted); font-size: 14px; }
 .ai-tabs, .ai-periods { display: flex; flex-wrap: wrap; gap: 5px; }
 .ai-tabs a, .ai-periods button { padding: 8px 12px; color: var(--muted); border: 1px solid transparent; border-radius: 8px; background: transparent; }
 .ai-tabs a[aria-current], .ai-periods button[aria-pressed=true] { background: var(--selected); color: var(--brand); border-color: var(--line); }
+.ai-page > .ai-periods { margin-bottom: 14px; }
 .ai-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 14px 0; }
 .ai-metrics > div { padding: 18px; min-width: 0; }
 .ai-metrics dt { color: var(--muted); font-size: 14px; }
 .ai-metrics dd { font-size: clamp(20px, 2.5vw, 28px); font-weight: 750; margin: 6px 0 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .ai-panel { padding: clamp(16px, 3vw, 24px); margin: 16px 0; min-width: 0; }
-.ai-panel > .ai-caption, .ai-source-panel > [role=status], .ai-source-panel > [role=alert] { margin-top: 10px; }
+.ai-panel > .ai-caption { margin-top: 10px; }
 .ai-empty { padding: 28px 0; color: var(--muted); }
 .ai-empty .primary { display: inline-block; margin-top: 14px; }
-.ai-distributions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.ai-distributions .ai-panel { margin-block: 0; }
 .ai-bars { padding: 0; margin: 18px 0 0; list-style: none; display: grid; gap: 15px; max-height: 380px; overflow: auto; }
 .ai-bars li > div { display: flex; flex-wrap: wrap; gap: 5px 12px; align-items: baseline; margin-bottom: 5px; font-size: 13px; }
 .ai-bars li > div > span:first-child { flex: 1; overflow-wrap: anywhere; min-width: 100px; }
@@ -25,20 +24,11 @@
 .ai-preferences { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
 .ai-preferences p { font-size: 14px; color: var(--muted); margin-top: 4px; }
 .ai-preferences .error { flex-basis: 100%; color: var(--danger); }
-.ai-source-create, .ai-price-search, .ai-ranking-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-.ai-source-create label, .ai-import > label, .ai-price-keyword { display: grid; gap: 5px; font-size: 14px; min-width: 0; }
-.ai-source-create input, .ai-import textarea, .ai-price-search input { font: inherit; border: 1px solid var(--input-line, var(--line)); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 10px; min-width: 0; width: 100%; }
-.ai-source-create input, .ai-price-search input { min-height: 44px; }
-.ai-source-create .app-select, .ai-import .app-select, .ai-price-search .app-select, .ai-ranking-filters .app-select { min-width: 160px; max-width: 100%; }
-.ai-source-list { list-style: none; padding: 0; margin-top: 16px; }
-.ai-source-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); padding: 10px 0; overflow-wrap: anywhere; }
-.ai-import { display: grid; gap: 10px; border-top: 1px solid var(--line); margin-top: 12px; padding-top: 16px; }
-.ai-import textarea { resize: vertical; }
-.ai-import details { min-width: 0; }
-.ai-import summary { cursor: pointer; color: var(--brand); }
-.ai-import pre { padding: 12px; overflow-x: auto; background: var(--selected); border-radius: 8px; font-size: 12px; }
-.ai-import > button { justify-self: end; }
-.ai-model-ids { padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }
+.ai-price-search, .ai-ranking-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.ai-price-keyword { display: grid; gap: 5px; font-size: 14px; min-width: 0; }
+.ai-price-search input { font: inherit; border: 1px solid var(--input-line, var(--line)); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 10px; min-width: 0; width: 100%; }
+.ai-price-search input { min-height: 44px; }
+.ai-price-search .app-select, .ai-ranking-filters .app-select { min-width: 160px; max-width: 100%; }
 .ai-ranking-heading { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
 .ai-ranking-filters { margin-bottom: 16px; align-items: center; }
 .ai-checkbox { display: flex; gap: 7px; font-size: 14px; }
@@ -54,21 +44,17 @@
 .ai-ranked-user img { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; }
 @media(max-width: 767px) {
   .ai-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ai-distributions { grid-template-columns: minmax(0, 1fr); }
-  .ai-source-create > label, .ai-price-keyword { flex: 1 1 100%; }
-  .ai-source-create .app-select, .ai-import .app-select { min-width: 0; width: 100%; }
+  .ai-price-keyword { flex: 1 1 100%; }
   .ai-table th, .ai-table td { padding: 10px 7px; }
 }
 
 .ai-page { width: min(1180px, calc(100% - 32px)); }
 .ai-heading { padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .ai-heading h1 { font-size: clamp(24px, 3vw, 32px); }
-.ai-overview-tools, .ai-panel-heading, .ai-heatmap-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; }
-.ai-overview-tools { margin-bottom: 14px; }
+.ai-panel-heading, .ai-heatmap-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; }
 .ai-periods { width: fit-content; max-width: 100%; padding: 3px; border-radius: 100px; background: color-mix(in srgb, var(--muted) 8%, var(--surface)); }
 .ai-periods button { padding: 5px 11px; border: 0; border-radius: 100px; }
 .ai-periods button[aria-pressed=true] { background: var(--brand); color: white; }
-.ai-import-link { padding: 7px 12px; border-radius: 8px; background: var(--selected); font-size: 14px; }
 .ai-panel-heading > span, .ai-heatmap-footer { color: var(--muted); font-size: 13px; }
 .ai-heatmap-scroll { overflow-x: auto; direction: rtl; padding: 10px 0 6px; }
 .ai-heatmap-grid {

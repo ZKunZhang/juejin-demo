@@ -15,8 +15,8 @@
 | 入口 | 地址 | 当前进度 |
 | --- | --- | --- |
 | APP | `/download#feature` | 站内客户端介绍、功能与常见问题，可打开网页版。安装包暂未发布 |
-| AI 用量 | `/ai-usage`、`/ai-usage/leaderboard`、`/ai-usage/prices` | 个人统计、热力图、公开排行、模型价格、手动用量导入 |
-| 作品广场 | `/projects` | 热门横向滚动、列表筛选、详情与点赞；创作者提交及后台审核 |
+| AI 用量 | `/ai-usage`、`/ai-usage/leaderboard`、`/ai-usage/prices` | 个人统计、热力图、公开排行、模型价格 |
+| 作品广场 | `/projects` | 热门横向滚动、列表筛选、详情与点赞；创作者提交及后台审核、上下架、删除 |
 | 专家标注 | `/expert-annotation` | 演示任务列表、登录领取、提交及本人结果 |
 
 [数据库设计](./database.md) · [数据库设计 HTML](./database-design-v1.3.html) · [模块测试用例](./module-test-cases.md) · [1.2 设计](../1.2/README.md)

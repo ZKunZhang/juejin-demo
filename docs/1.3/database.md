@@ -34,7 +34,7 @@
 | `project_view_windows` | `project_id`、`viewer_key`、`window_start` | 组合主键去重。距上次记录满 30 分钟才新增一条；按窗口行计数 |
 | `project_reviews` | `id`、`project_id`、`actor_id`、`version`、操作、前后状态、原因、`created_at` | 作品与版本联合唯一。状态更新与审核日志同事务写入 |
 
-作者仅可编辑或提交草稿及已驳回作品，保存内容及更新分类和平台在同一事务。作者保存草稿并提交审核。管理员通过后公开，也可驳回或下架。状态取值为 `DRAFT`、`PENDING`、`PUBLISHED`、`REJECTED`、`UNLISTED`。作者和管理员操作均校验版本；公开查询、详情、访问量和点赞均检查作品的公开状态。只接受验证过的 HTTP(S) 外链和 HTTPS 封面。
+作者仅可编辑或提交草稿及已驳回作品，保存内容及更新分类和平台在同一事务。作者保存草稿并提交审核。管理员通过后公开，也可驳回、下架、重新上架或删除。删除是软删除，广场和作者列表立即隐藏，管理员可按已删除状态查询审计记录。状态取值为 `DRAFT`、`PENDING`、`PUBLISHED`、`REJECTED`、`UNLISTED`、`DELETED`。作者和管理员操作均校验版本；公开查询、详情、访问量和点赞均检查作品的公开状态。只接受验证过的 HTTP(S) 外链和 HTTPS 封面。
 
 广场组合分类、平台、发布时间和名称或简介关键词查询。首屏热门作品与主列表使用同一套公开规则。按点赞、浏览或最新排序时附加发布时间和作品 ID 以稳定分页。先用索引与关系聚合，性能有实测需求再添加可重建的计数缓存。后台可按状态和最近提交时间筛选审核。每次提交更新该时间，草稿编辑不改变该时间。
 
@@ -65,7 +65,7 @@ COMMENT ON COLUMN ai_usage_events.source_event_key IS '导入来源内唯一的�
 COMMENT ON COLUMN ai_usage_events.price_id IS '用量发生时匹配到的计价记录；缺价时为空。';
 COMMENT ON COLUMN ai_usage_events.estimated_cost_usd IS '入库时估算的美元费用；无法估算时为空。';
 COMMENT ON COLUMN ai_usage_preferences.public_leaderboard IS '用户是否同意公开显示在 AI 用量排行榜，默认关闭。';
-COMMENT ON COLUMN projects.status IS '作品流程状态：草稿、待审核、已发布、已驳回或已下架。';
+COMMENT ON COLUMN projects.status IS '作品流程状态：草稿、待审核、已发布、已驳回、已下架或已删除；已删除作品只保留作后台审计。';
 COMMENT ON COLUMN projects.submitted_at IS '最近一次提交审核的时间，保存草稿时保持原值。';
 ```
 
@@ -82,4 +82,4 @@ COMMENT ON COLUMN projects.submitted_at IS '最近一次提交审核的时间，
 
 执行 `ENABLE_DEMO_SEED=true ENABLE_DEMO_V13=true npm run db:seed`，在本地 `_dev` 或 `_test` 库为现有演示账号填充作品、AI 用量及标注任务。种子使用稳定的业务键和 ID，重复执行不产生重复条目，也不覆盖已有排行偏好。
 
-样例作品的外链是占位地址，供应商、模型价格和 Token 均为模拟记录。用户可在 AI 用量页手动导入结构化用量记录，排行榜需主动开启公开。
+样例作品的外链是占位地址，供应商、模型价格和 Token 均为模拟记录。AI 用量页用于统计展示。排行榜需主动开启公开。

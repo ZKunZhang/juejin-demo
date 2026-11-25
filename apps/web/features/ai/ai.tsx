@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, NavLink, useLocation, useSearchParams } from 'react-router-dom';
 import { api } from '../../../shared/api/api';
@@ -18,7 +18,6 @@ type Usage = {
   tools: Distribution[]; models: Distribution[]; publicLeaderboard: boolean;
 };
 type DailyUsage = { date: string; totalTokens: string; estimatedCostUsd: string | null };
-type Source = { id: string; label: string; tool: Option; revokedAt: string | null };
 type Rank = { userId: string; displayName: string; avatarUrl: string | null; totalTokens: string; estimatedCostUsd: string | null };
 type Price = {
   model: Option & { modelKey: string }; provider: Option & { slug: string };
@@ -57,15 +56,14 @@ function PersonalUsage() {
     queryKey: ['ai-usage', user?.id, period.value], enabled: !!user,
     queryFn: ({ signal }) => api<Usage>('/api/me/ai/usage?period=' + period.value, 'GET', undefined, signal),
   });
-  const options = useQuery({ queryKey: ['ai-options'], enabled: !!user, queryFn: ({ signal }) => api<Options>('/api/ai/options', 'GET', undefined, signal) });
   if (loading || error) return <section className="surface ai-panel"><Pending error={error} retry={retry}/></section>;
-  if (!user) return <section className="surface ai-panel ai-empty"><h2>查看个人用量</h2><p>登录后管理用量来源、导入记录和查看统计。</p>
+  if (!user) return <section className="surface ai-panel ai-empty"><h2>查看个人用量</h2><p>登录后查看个人统计和趋势。</p>
     <Link className="primary" to={'/login?next=' + encodeURIComponent(location.pathname + location.search)} state={{ background: location }}>登录</Link></section>;
   return <>
-    <div className="ai-overview-tools"><div className="ai-periods" role="group" aria-label="统计周期">
+    <div className="ai-periods" role="group" aria-label="统计周期">
       {periods.map(item => <button key={item.value} aria-pressed={item.value === period.value}
         onClick={() => setParams(item.value === 'today' ? {} : { period: item.value })}>{item.label}</button>)}
-    </div><a className="ai-import-link" href="#usage-sources">导入用量</a></div>
+    </div>
     {!query.data ? <section className="surface ai-panel"><Pending error={query.error} retry={() => void query.refetch()}/></section> : <>
       <p className="ai-caption">按北京时间统计 · {period.label}</p>
       <dl className="ai-metrics">
@@ -81,7 +79,6 @@ function PersonalUsage() {
       </div>
       <LeaderboardPreference selected={query.data.publicLeaderboard} userId={user.id}/>
     </>}
-    <UsageSources userId={user.id} options={options.data} optionsError={options.error} retryOptions={() => void options.refetch()}/>
   </>;
 }
 
@@ -156,75 +153,6 @@ function LeaderboardPreference({ selected, userId }: { selected: boolean; userId
   return <section className="surface ai-panel ai-preferences"><div><h2>公开排行</h2><p>开启后，其他人可在排行榜看到你的昵称、用量及已知费用。</p></div>
     <button className="subtle" aria-pressed={selected} disabled={busy} onClick={() => void update()}>{selected ? '退出公开排行' : '加入公开排行'}</button>
     {error && <p className="error" role="alert">{error}</p>}
-  </section>;
-}
-
-function UsageSources({ userId, options, optionsError, retryOptions }: { userId: string; options?: Options; optionsError: Error | null; retryOptions: () => void }) {
-  const client = useQueryClient();
-  const query = useQuery({ queryKey: ['ai-sources', userId], queryFn: ({ signal }) => api<{ items: Source[] }>('/api/me/ai/sources', 'GET', undefined, signal) });
-  const [toolId, setToolId] = useState('');
-  const [sourceId, setSourceId] = useState('');
-  const [payload, setPayload] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  async function mutate(operation: () => Promise<void>) {
-    setBusy(true); setError(''); setNotice('');
-    try { await operation(); }
-    catch (error) { setError(failure(error)); }
-    finally { setBusy(false); }
-  }
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const label = String(new FormData(form).get('label') || '').trim();
-    await mutate(async () => {
-      await api('/api/me/ai/sources', 'POST', { toolId, label });
-      await client.invalidateQueries({ queryKey: ['ai-sources', userId] });
-      form.reset(); setNotice('用量来源已创建');
-    });
-  }
-  async function importEvents(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await mutate(async () => {
-      let events: unknown;
-      try { events = JSON.parse(payload); } catch { throw new Error('请输入有效的 JSON 数组'); }
-      if (!Array.isArray(events)) throw new Error('用量记录需要是 JSON 数组');
-      if (!events.length || events.length > 100) throw new Error('每次可导入 1 至 100 条记录');
-      const result = await api<{ inserted: number; duplicates: number }>('/api/me/ai/events', 'POST', { sourceId, events });
-      await Promise.all([client.invalidateQueries({ queryKey: ['ai-usage', userId] }), client.invalidateQueries({ queryKey: ['ai-leaderboard'] })]);
-      setPayload(''); setNotice('已导入 ' + result.inserted + ' 条，重复 ' + result.duplicates + ' 条');
-    });
-  }
-  const active = query.data?.items.filter(item => !item.revokedAt) ?? [];
-  return <section className="surface ai-panel ai-source-panel" id="usage-sources"><h2>用量来源与导入</h2>
-    {!options ? <Pending error={optionsError} retry={retryOptions}/> : <form className="ai-source-create" onSubmit={event => void create(event)}>
-      <label>来源名称<input name="label" required maxLength={120} placeholder="例如：工作电脑" disabled={busy}/></label>
-      <label>工具<AppSelect label="来源工具" value={toolId || undefined} placeholder="选择工具" disabled={busy} options={options.tools.map(tool => ({ value: tool.id, label: tool.name }))} onChange={setToolId}/></label>
-      <button className="subtle" disabled={busy || !toolId || !options.tools.length}>创建来源</button>
-      {!options.tools.length && <p className="ai-caption">管理员添加工具后即可创建来源。</p>}
-    </form>}
-    {!query.data ? <Pending error={query.error} retry={() => void query.refetch()}/> : query.data.items.length ? <ul className="ai-source-list">
-      {query.data.items.map(source => <li key={source.id}><span><strong>{source.label}</strong> · {source.tool.name}</span>
-        {source.revokedAt ? <span className="ai-caption">已停用</span> : <button className="subtle" disabled={busy} onClick={() => void mutate(async () => {
-          await api('/api/me/ai/sources/' + source.id, 'DELETE');
-          if (sourceId === source.id) setSourceId('');
-          await client.invalidateQueries({ queryKey: ['ai-sources', userId] });
-          setNotice('用量来源已停用');
-        })}>停用来源</button>}
-      </li>)}
-    </ul> : <p className="ai-caption">还没有用量来源。</p>}
-    {!!active.length && <form className="ai-import" onSubmit={event => void importEvents(event)}>
-      <label>导入来源<AppSelect label="导入来源" disabled={busy} value={sourceId || undefined} placeholder="选择来源" options={active.map(source => ({ value: source.id, label: source.label }))} onChange={setSourceId}/></label>
-      <label htmlFor="ai-events">用量记录 JSON</label>
-      <textarea id="ai-events" rows={8} value={payload} maxLength={180000} required disabled={busy} spellCheck={false} onChange={event => setPayload(event.target.value)} placeholder="粘贴用量记录数组"/>
-      <details><summary>查看导入字段</summary><p className="ai-caption">每次导入 1 至 100 条。每条记录需要来源内唯一的 sourceEventKey、模型 ID、含时区的 occurredAt，以及下列十进制字符串计数。普通输入、未拆分输入和缓存输入分别计数。</p>
-        <pre>{JSON.stringify([{ sourceEventKey: 'event-001', modelId: '模型 ID', occurredAt: new Date().toISOString(), inputTokens: '1000', unclassifiedInputTokens: '0', outputTokens: '200', cacheReadTokens: '0', cacheWriteTokens: '0' }], null, 2)}</pre>
-        {options && <ul className="ai-model-ids">{options.models.map(model => <li key={model.id}>{model.name} <code>{model.id}</code></li>)}</ul>}
-      </details>
-      <button className="primary" disabled={busy || !sourceId || !payload.trim()}>导入用量</button>
-    </form>}
-    {notice && <p role="status">{notice}</p>}{error && <p className="error" role="alert">{error}</p>}
   </section>;
 }
 

@@ -5,7 +5,7 @@ import { conflict, missing, object, uuid, versionSchema } from '../../shared/htt
 import { ApiError, security } from '../../shared/security';
 import { assureViewer, viewerKey } from '../articles/article-views';
 
-const statuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'UNLISTED'] as const;
+const statuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'REJECTED', 'UNLISTED', 'DELETED'] as const;
 const pageSchema = { type:'string', pattern:'^[1-9][0-9]{0,3}$' };
 const idSchema = object({id:uuid});
 const text = (maxLength:number) => ({type:'string', minLength:1, maxLength, pattern:'\\S'});
@@ -143,7 +143,7 @@ export function registerProjects(app:FastifyInstance, db:PrismaClient, auth:Retu
 
   app.get('/api/me/projects',{preHandler:auth.requireUser},async(request,reply)=>{
     reply.header('Cache-Control','private, no-store');
-    const projects=await db.project.findMany({where:{authorId:request.actor!.id},select:detail,orderBy:[{updatedAt:'desc'},{id:'desc'}]});
+    const projects=await db.project.findMany({where:{authorId:request.actor!.id,status:{not:'DELETED'}},select:detail,orderBy:[{updatedAt:'desc'},{id:'desc'}]});
     return {items:projects.map(item)};
   });
 
@@ -162,7 +162,7 @@ export function registerProjects(app:FastifyInstance, db:PrismaClient, auth:Retu
   },async request=>db.$transaction(async tx=>{
     const id=request.params.id;
     const authorId=request.actor!.id;
-    const owned=await tx.project.findFirst({where:{id,authorId},select:{id:true}});
+    const owned=await tx.project.findFirst({where:{id,authorId,status:{not:'DELETED'}},select:{id:true}});
     if (!owned) throw missing();
     const {version,...body}=request.body;
     const data=await projectData(tx,body);
@@ -180,17 +180,22 @@ export function registerProjects(app:FastifyInstance, db:PrismaClient, auth:Retu
       const current=await tx.project.findFirst({where:{id,authorId:ownerOnly?actorId:undefined},select:{status:true}});
       if (!current) throw missing();
       const previous=current.status;
+      if (previous==='DELETED') throw missing();
       const allowed=ownerOnly ? previous==='DRAFT' || previous==='REJECTED' :
-        previous==='PENDING' ? status==='PUBLISHED' || status==='REJECTED' : previous==='PUBLISHED' && status==='UNLISTED';
+        status==='DELETED' ||
+        (status==='PUBLISHED' && (previous==='PENDING' || previous==='UNLISTED')) ||
+        (status==='REJECTED' && previous==='PENDING') ||
+        (status==='UNLISTED' && previous==='PUBLISHED');
       if (!allowed) throw conflict();
       const time=new Date();
       const updated=await tx.project.updateMany({
         where:{id,version,status:previous,authorId:ownerOnly?actorId:undefined},
-        data:{status,version:{increment:1},submittedAt:status==='PENDING'?time:undefined,publishedAt:status==='PUBLISHED'?time:undefined},
+        data:{status,version:{increment:1},submittedAt:status==='PENDING'?time:undefined,publishedAt:status==='PUBLISHED'&&previous==='PENDING'?time:undefined},
       });
       if (!updated.count) throw conflict();
       await tx.projectReview.create({data:{
-        projectId:id,actorId,version:version+1,action:ownerOnly?'SUBMIT':status==='PUBLISHED'?'APPROVE':status==='REJECTED'?'REJECT':'UNLIST',
+        projectId:id,actorId,version:version+1,action:ownerOnly?'SUBMIT':status==='PUBLISHED'?(previous==='UNLISTED'?'RELIST':'APPROVE'):
+          status==='REJECTED'?'REJECT':status==='UNLISTED'?'UNLIST':'DELETE',
         previousStatus:previous,nextStatus:status,reason,
       }});
       return item(await tx.project.findUniqueOrThrow({where:{id},select:detail}));
@@ -206,16 +211,16 @@ export function registerProjects(app:FastifyInstance, db:PrismaClient, auth:Retu
   },async(request,reply)=>{
     reply.header('Cache-Control','private, no-store');
     const {status,page='1'}=request.query;
-    const rows=await db.project.findMany({where:{status,submittedAt:adminCreatedAt(request.query)},select:detail,
+    const rows=await db.project.findMany({where:{status:status??{not:'DELETED'},submittedAt:adminCreatedAt(request.query)},select:detail,
       orderBy:[{submittedAt:{sort:'desc',nulls:'last'}},{id:'desc'}],skip:(Number(page)-1)*pageSize,take:pageSize+1});
     return {items:rows.slice(0,pageSize).map(item),hasMore:rows.length>pageSize};
   });
 
-  app.patch<{Params:Identified;Body:{version:number;status:'PUBLISHED'|'REJECTED'|'UNLISTED';reason?:string}}>('/api/admin/projects/:id/status',{
-    preHandler:adminWrite,schema:{params:idSchema,body:object({version:versionSchema,status:{enum:['PUBLISHED','REJECTED','UNLISTED']},reason:text(1000)},['version','status'])},
+  app.patch<{Params:Identified;Body:{version:number;status:'PUBLISHED'|'REJECTED'|'UNLISTED'|'DELETED';reason?:string}}>('/api/admin/projects/:id/status',{
+    preHandler:adminWrite,schema:{params:idSchema,body:object({version:versionSchema,status:{enum:['PUBLISHED','REJECTED','UNLISTED','DELETED']},reason:text(1000)},['version','status'])},
   },request=>{
     const {version,status,reason}=request.body;
-    if (status!=='PUBLISHED' && !reason?.trim()) throw new ApiError(400,'REASON_REQUIRED','请输入审核原因');
+    if ((status==='REJECTED' || status==='UNLISTED') && !reason?.trim()) throw new ApiError(400,'REASON_REQUIRED','请输入审核原因');
     return transition(request.params.id,request.actor!.id,version,status,reason?.trim()||null,false);
   });
 }

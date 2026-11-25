@@ -49,7 +49,25 @@ try {
   await author.goto(base+detail);
   await author.getByRole('button',{name:/^点赞/}).click();
   await expect(author.getByRole('button',{name:/取消点赞/})).toHaveAttribute('aria-pressed','true');
-  console.log('Project draft, submission, approval, public view and like passed.');
+  await row.getByRole('button',{name:'管理作品'}).click();
+  await dialog.getByLabel('处理原因').fill('浏览器验收下架');
+  await dialog.getByRole('button',{name:'下架作品'}).click();
+  await expect(admin.getByText('作品已下架',{exact:true})).toBeVisible();
+  assert.equal((await guest.request.get(base+'/api'+detail)).status(),404);
+  await row.getByRole('button',{name:'管理作品'}).click();
+  await dialog.getByRole('button',{name:'上架作品'}).click();
+  await expect(admin.getByText('作品已重新上架',{exact:true})).toBeVisible();
+  assert.equal((await guest.request.get(base+'/api'+detail)).status(),200);
+  await row.getByRole('button',{name:'管理作品'}).click();
+  await dialog.getByRole('button',{name:'删除作品'}).click();
+  await dialog.getByRole('button',{name:'取消删除'}).click();
+  assert.equal((await guest.request.get(base+'/api'+detail)).status(),200);
+  await dialog.getByRole('button',{name:'删除作品'}).click();
+  await dialog.getByRole('button',{name:'确认删除'}).click();
+  await expect(admin.getByText('作品已删除',{exact:true})).toBeVisible();
+  assert.equal((await guest.request.get(base+'/api'+detail)).status(),404);
+  await expect(row).toHaveCount(0);
+  console.log('Project draft, approval, interactions, unlist, relist and confirmed deletion passed.');
 } finally {
   await browser.close();
   const client=new pg.Client({connectionString:database.href});

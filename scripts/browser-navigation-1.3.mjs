@@ -24,6 +24,8 @@ try {
   await page.getByLabel('密码', { exact:true }).fill(process.env.DEMO_BETA_PASSWORD);
   await page.getByRole('button', { name:'登录', exact:true }).click();
   await expect(page.getByRole('heading', { name:'每日用量' })).toBeVisible();
+  await expect(page.getByRole('heading',{name:'用量来源与导入'})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'导入用量'})).toHaveCount(0);
   const heatmap=page.getByRole('img',{name:/最近 365 天/});
   await expect(heatmap.locator('.ai-heatmap-cell')).toHaveCount(365);
   await expect(heatmap.locator('[data-level]:not([data-level="0"])').first()).toBeVisible();

@@ -79,6 +79,21 @@ test('works persist through submission, moderation, public filters and interacti
     expect((await like()).statusCode).toBe(404);
     expect(await db.projectViewWindow.count({where:{projectId:id}})).toBe(1);
     expect(await db.projectLike.count({where:{projectId:id}})).toBe(1);
+    const relisted=await moderate('PUBLISHED',unlisted.json().version);
+    expect(relisted.statusCode).toBe(200);
+    expect(relisted.json().publishedAt).toBe(approved.publishedAt);
+    expect((await get(publicPath)).statusCode).toBe(200);
+    expect((await moderate('DELETED',relisted.json().version,other)).statusCode).toBe(403);
+    expect((await moderate('DELETED',approved.version)).statusCode).toBe(409);
+    const deleted=await moderate('DELETED',relisted.json().version);
+    expect(deleted.statusCode).toBe(200);
+    expect((await get(publicPath)).statusCode).toBe(404);
+    expect((await get('/api/me/projects',owner)).json().items).toEqual([]);
+    expect((await get('/api/admin/projects',admin)).json().items.some((row:{id:string})=>row.id===id)).toBe(false);
+    expect((await get('/api/admin/projects?status=DELETED',admin)).json().items.some((row:{id:string})=>row.id===id)).toBe(true);
+    expect((await moderate('PUBLISHED',deleted.json().version)).statusCode).toBe(404);
+    expect(await db.projectReview.count({where:{projectId:id,action:{in:['RELIST','DELETE']}}})).toBe(2);
+
     const comments=await db.$queryRaw<{count:bigint}[]>`
       SELECT count(*) FROM pg_class WHERE relname IN ('projects','project_categories','project_platforms',
       'project_category_links','project_platform_links','project_likes','project_view_windows','project_reviews')
