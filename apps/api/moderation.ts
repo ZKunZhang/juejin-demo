@@ -74,7 +74,7 @@ export function registerModeration(app:FastifyInstance,db:PrismaClient,auth:Retu
   },async request=>{
     const page=Number(request.query.page||1);
     const items=await db.comment.findMany({where:{articleId:request.query.articleId,status:request.query.status},
-      select:{id:true,body:true,status:true,createdAt:true,author:{select:authorSelect},article:{select:{id:true,title:true}}},
+      select:{id:true,body:true,status:true,createdAt:true,parent:{select:{id:true,status:true}},author:{select:authorSelect},article:{select:{id:true,title:true}}},
       orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*30,take:31});
     const hasMore=items.length>30;if(hasMore)items.pop();
     return {items,hasMore};

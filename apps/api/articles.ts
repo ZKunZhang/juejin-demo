@@ -1,5 +1,5 @@
 import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
-import type { PrismaClient } from '../../generated/prisma/client';
+import type { Prisma, PrismaClient } from '../../generated/prisma/client';
 import { assureViewer } from './article-views';
 import { ApiError, security } from './security';
 
@@ -18,8 +18,8 @@ export const articleSelect = {
   id:true,title:true,summary:true,author:{select:authorSelect},
   tags:{select:{tag:{select:{id:true,name:true,slug:true}}}},
   publishedAt:true,updatedAt:true,viewCount:true,
-  _count:{select:{likes:true,comments:{where:{status:"VISIBLE"}}}},
-} as const;
+  _count:{select:{likes:true,comments:{where:{status:"VISIBLE",OR:[{parentId:null},{parent:{status:"VISIBLE"}}]}}}},
+} satisfies Prisma.ArticleSelect;
 export const draftSelect = { ...articleSelect, bodyMarkdown:true, status:true, reviewStatus:true, version:true } as const;
 export const conflict = () => new ApiError(409,'STATE_CONFLICT','状态已变化，请刷新后重试');
 export const missing = () => new ApiError(404,'NOT_FOUND','内容不存在');

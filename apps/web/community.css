@@ -1,0 +1,200 @@
+:root.community {
+  --bg: #f4f6f8;
+  --ink: #202939;
+  --muted: #535f70;
+  --line: #e7ebf0;
+  --brand: #135ddb;
+  --selected: #eaf2ff;
+  --radius: 6px;
+  --shadow: none;
+  font-size: 15px;
+}
+
+.community .primary,
+.community .subtle {
+  border-radius: 5px;
+}
+
+.community .primary:hover {
+  background: #104db8;
+}
+
+.community .site-header .search {
+  margin-left: auto;
+  gap: 0;
+  border: 1px solid #d6dde6;
+  border-radius: 5px;
+  background: var(--bg);
+}
+
+.community .site-header .search:focus-within {
+  border-color: var(--brand);
+}
+
+.community .site-header .search input {
+  border: 0;
+  background: transparent;
+}
+
+.community .site-header .account {
+  margin-left: 0;
+}
+
+.account .profile-link {
+  min-width: 0;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+}
+
+.profile-link:hover,
+.profile-link[aria-current="page"] {
+  background: var(--selected);
+}
+
+.profile-link .nickname {
+  max-width: 12rem;
+}
+
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-identity .avatar {
+  width: 64px;
+  height: 64px;
+  font-size: 26px;
+}
+
+.profile-identity h2 {
+  font-size: 22px;
+}
+
+.profile-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.profile-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.profile-links a:hover {
+  background: var(--selected);
+}
+
+.home-grid {
+  gap: 16px;
+}
+
+.home-grid .filter {
+  padding: 12px;
+}
+
+.home-grid .filter h2 {
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+.home-grid .filter button {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.home-grid .filter button[aria-pressed="true"] {
+  color: var(--brand);
+  box-shadow: none;
+}
+
+.feed {
+  min-width: 0;
+}
+
+.feed h1 {
+  font-size: 16px;
+}
+
+.feed-item {
+  padding: 16px 20px;
+  overflow-wrap: anywhere;
+}
+
+.feed-item:hover,
+.feed-item:focus-within {
+  background: #f8faff;
+}
+
+.feed-item:last-child,
+.activity-list li:first-child {
+  border: 0;
+}
+
+.feed .item-title {
+  font-weight: 700;
+}
+
+.feed .description {
+  -webkit-line-clamp: 1;
+}
+
+.community .tag {
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.community .tag:hover {
+  background: var(--selected);
+  color: var(--brand);
+}
+
+.home-grid .side h2 {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.community .markdown pre,
+.community .comment-form textarea {
+  background: var(--bg);
+}
+
+@media (max-width: 767px) {
+  .account .profile-link {
+    gap: 6px;
+    padding-inline: 4px;
+  }
+
+  .profile-link .nickname {
+    max-width: 72px;
+  }
+
+  .account .profile-link .avatar {
+    display: grid;
+    width: 28px;
+    height: 28px;
+  }
+
+  .community .site-header .account {
+    margin-left: auto;
+  }
+
+  .community .site-header .search {
+    margin: 0 0 8px;
+  }
+
+  .home-grid .filter h2 {
+    flex: none;
+  }
+}

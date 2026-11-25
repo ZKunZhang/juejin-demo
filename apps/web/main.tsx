@@ -8,6 +8,7 @@ import { api } from './api';
 import { MyRelations } from './interactions';
 import { ArticlePage, Creator, Editor, Home } from './articles';
 import './styles.css';
+import './community.css';
 
 const client = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: false } } });
 function Header({ location }: { location: Location }) {
@@ -27,10 +28,34 @@ function Header({ location }: { location: Location }) {
     <Link className="wordmark" to="/"><span className="brand-mark" aria-hidden="true">◇</span>码栈</Link>
     <nav aria-label="主导航"><Link to="/" aria-current={location.pathname === '/' ? 'page' : undefined}>文章</Link><Link to="/creator/articles" aria-current={location.pathname.startsWith('/creator')?'page':undefined}>创作者中心</Link></nav><form className="search" role="search" onSubmit={event=>{event.preventDefault();const form=new FormData(event.currentTarget);const word=String(form.get('q')||'').trim();navigate(word?'/?q='+encodeURIComponent(word):'/');}}><input key={location.search} aria-label="搜索文章" name="q" type="search" maxLength={100} placeholder="搜索文章" defaultValue={new URLSearchParams(location.search).get('q')||''}/><button className="subtle" type="submit">搜索</button></form>
     <div className="account">
-      {loading ? <span role="status">加载中…</span> : error ? <button className="subtle" onClick={retry}>重试会话</button> : user ? <><span className="avatar" aria-hidden="true">{Array.from(user.displayName)[0]}</span><details className="account-menu"><summary className="nickname">{user.displayName}</summary><div className="surface"><Link to="/creator/articles">我的文章</Link><Link to="/me/bookmarks">我的收藏</Link><Link to="/me/following">我的关注</Link></div></details><button className="subtle" onClick={logout} disabled={busy}>退出</button></> : <><Link to={'/login' + authQuery} state={authState}>登录</Link><Link className="primary" to={'/register' + authQuery} state={authState}>注册</Link></>}
+      {loading ? <span role="status">加载中…</span> : error ? <button className="subtle" onClick={retry}>重试会话</button> : user ? <>
+        <Link className="profile-link" to="/me" aria-current={location.pathname === '/me' ? 'page' : undefined}>
+          <span className="avatar" aria-hidden="true">{Array.from(user.displayName)[0]}</span>
+          <span className="nickname">{user.displayName}</span>
+        </Link>
+        <button className="subtle" onClick={logout} disabled={busy}>退出</button>
+      </> : <><Link to={'/login' + authQuery} state={authState}>登录</Link><Link className="primary" to={'/register' + authQuery} state={authState}>注册</Link></>}
       {status && <span className="error" role="alert">{status}</span>}
     </div>
   </div></header>;
+}
+function Profile() {
+  const { user, loading, error, retry } = useSession();
+  const location = useLocation();
+  return <main className="surface work profile">
+    <h1>个人详情</h1>
+    {loading ? <p role="status">加载中…</p> : error ? <button className="subtle" onClick={retry}>重试会话</button> : user ? <>
+      <div className="profile-identity">
+        <span className="avatar" aria-hidden="true">{Array.from(user.displayName)[0]}</span>
+        <div><h2>{user.displayName}</h2><p className="meta">@{user.username}</p></div>
+      </div>
+      <nav className="profile-links" aria-label="个人内容">
+        <Link to="/creator/articles">我的文章</Link>
+        <Link to="/me/bookmarks">我的收藏</Link>
+        <Link to="/me/following">我的关注</Link>
+      </nav>
+    </> : <Link to="/login?next=%2Fme" state={{ background: location }}>登录后查看</Link>}
+  </main>;
 }
 function WebRoutes() {
   const location = useLocation();
@@ -61,6 +86,7 @@ function WebRoutes() {
     <Route path="/creator/articles" element={<Creator/>}/>
     <Route path="/creator/articles/new" element={<Editor/>}/>
     <Route path="/creator/articles/:id/edit" element={<Editor/>}/>
+    <Route path="/me" element={<Profile/>}/>
     <Route path="/me/bookmarks" element={<MyRelations type="bookmarks"/>}/>
     <Route path="/me/following" element={<MyRelations type="following"/>}/>
     <Route path="*" element={<main className="surface missing"><h1>页面不存在</h1><Link to="/">返回文章首页</Link></main>}/>

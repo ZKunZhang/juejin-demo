@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Link, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ActivityEditor, ActivityQueue } from './activities';
 import { api } from '../web/api';
@@ -9,11 +9,12 @@ import { SessionProvider, useSession } from '../web/session';
 import { Markdown } from '../web/markdown';
 import { Pending, statusText, type Article } from '../web/articles';
 import '../web/styles.css';
+import './admin.css';
 
 const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
 type List<T>={items:T[];hasMore:boolean};
 type AdminArticle=Article&{reviews:{articleVersion:number;action:string;reason:string|null;actor:{displayName:string}}[]};
-type Comment={id:string;body:string;status:'VISIBLE'|'HIDDEN';author:{displayName:string};article:{id:string;title:string}};
+type Comment={id:string;body:string;status:'VISIBLE'|'HIDDEN';parent:{id:string;status:'VISIBLE'|'HIDDEN'}|null;author:{displayName:string};article:{id:string;title:string}};
 const errors=(error:unknown)=>error instanceof Error?error.message:'处理失败，请重试';
 const actionText:Record<string,string>={SUBMIT:'提交审核',APPROVE:'审核通过',REJECT:'驳回',UNLIST:'下架',RETURN_TO_DRAFT:'转回草稿'};
 
@@ -24,11 +25,11 @@ function AdminShell() {
   if(loading||error)return <main className="surface work"><Pending error={error} retry={retry}/></main>;
   if(!user)return <Routes><Route path="/login" element={<AuthPage admin/>}/><Route path="*" element={<Navigate to="/login" replace/>}/></Routes>;
   if(user.role!=='ADMIN')return <main className="surface work"><h1>没有后台访问权限</h1><button className="subtle" onClick={logout}>退出并换账号</button>{failure&&<p className="error" role="alert">{failure}</p>}</main>;
-  return <><header className="site-header"><div className="header-inner"><Link className="wordmark" to="/"><span className="brand-mark">◇</span>码栈管理后台</Link><div className="account"><span className="nickname">{user.displayName}</span><button className="subtle" onClick={logout}>退出</button></div></div></header>
-    <main className="admin admin-grid"><nav className="surface side" aria-label="管理导航"><Link to="/articles">文章审核</Link><Link to="/comments">评论管理</Link><Link to="/activities">活动管理</Link><a href="/">访问前台</a></nav><div className="surface admin-panel">
+  return <div className="admin-shell"><header className="site-header admin-header"><div className="header-inner"><Link className="wordmark" to="/"><span className="brand-mark">◇</span>码栈管理后台</Link><div className="account"><span className="nickname">{user.displayName}</span><button className="subtle" onClick={logout}>退出</button></div></div></header>
+    <main className="admin admin-grid"><nav className="surface admin-nav" aria-label="管理导航"><NavLink to="/articles">文章审核</NavLink><NavLink to="/comments">评论管理</NavLink><NavLink to="/activities">活动管理</NavLink><a className="front-link" href="/">访问前台</a></nav><div className="surface admin-panel">
       {failure&&<p className="error" role="alert">{failure}</p>}
       <Routes><Route path="/" element={<Navigate to="/articles" replace/>}/><Route path="/login" element={<Navigate to="/articles" replace/>}/><Route path="/articles" element={<ReviewQueue/>}/><Route path="/articles/:id" element={<ReviewArticle/>}/><Route path="/comments" element={<Comments/>}/><Route path="/activities" element={<ActivityQueue/>}/><Route path="/activities/new" element={<ActivityEditor/>}/><Route path="/activities/:id" element={<ActivityEditor/>}/><Route path="*" element={<Navigate to="/articles" replace/>}/></Routes>
-    </div></main></>;
+    </div></main></div>;
 }
 function PageSwitch({page,more,update}:{page:number;more:boolean;update:(page:number)=>void}) {
   return <div className="editor-actions"><button className="subtle" disabled={page===1} onClick={()=>update(page-1)}>上一页</button><button className="subtle" disabled={!more} onClick={()=>update(page+1)}>下一页</button></div>;
@@ -91,7 +92,7 @@ function CommentRow({comment,refresh}:{comment:Comment;refresh:()=>void}) {
     catch(error){setFailure(errors(error));}
     finally{setBusy(false);}
   }
-  return <article className="admin-comment"><p className="meta">{comment.author.displayName} · <Link to={'/articles/'+comment.article.id}>{comment.article.title}</Link> · {visible?'可见':'已隐藏'}</p><p>{comment.body}</p>
+  return <article className="admin-comment"><p className="meta">{comment.author.displayName} · <Link to={'/articles/'+comment.article.id}>{comment.article.title}</Link> · {visible?'可见':'已隐藏'}{comment.parent && (comment.parent.status === 'HIDDEN' ? ' · 回复 · 所属评论已隐藏' : ' · 回复')}</p><p>{comment.body}</p>
     {visible&&<label>隐藏原因<textarea rows={2} value={reason} maxLength={1000} onChange={event=>setReason(event.target.value)}/></label>}
     <button className="subtle" disabled={busy||(visible&&!reason.trim())} onClick={moderate}>{visible?'隐藏评论':'恢复评论'}</button>
     {failure&&<p className="error" role="alert">{failure}</p>}

@@ -6,6 +6,8 @@ import { articleSelect, authorSelect, missing, object, uuid } from './articles';
 type Params={id:string};
 type Toggle={active:boolean};
 const params=object({id:uuid});
+const commentSelect={id:true,body:true,createdAt:true,parentId:true,author:{select:authorSelect}} as const;
+const newestComments=[{createdAt:'desc'},{id:'desc'}] as const;
 const toggle=object({active:{type:'boolean'}});
 type Tx=Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
 
@@ -17,19 +19,30 @@ export function registerInteractions(app:FastifyInstance,db:PrismaClient,auth:Re
   const write=[...protectedWrite,auth.requireUser];
   app.get<{Params:Params}>('/api/articles/:id/comments',{schema:{params}},async request=>{
     const article=await db.article.findFirst({where:{id:request.params.id,status:'PUBLISHED'},select:{comments:{
-      where:{status:'VISIBLE'},orderBy:[{createdAt:'asc'},{id:'asc'}],take:100,
-      select:{id:true,body:true,createdAt:true,author:{select:authorSelect}},
+      where:{status:'VISIBLE',parentId:null},orderBy:[...newestComments],take:100,
+      select:{...commentSelect,replies:{
+        where:{status:'VISIBLE'},orderBy:[...newestComments],take:20,select:commentSelect,
+      }},
     }}});
     if(!article)throw missing();
-    return article.comments;
+    return article.comments.reverse().map(comment=>({...comment,replies:comment.replies.reverse()}));
   });
-  app.post<{Params:Params;Body:{body:string}}>('/api/articles/:id/comments',{
-    preHandler:write,schema:{params,body:object({body:{type:'string',minLength:1,maxLength:2000,pattern:'\\S'}})},
+  app.post<{Params:Params;Body:{body:string;parentId?:string}}>('/api/articles/:id/comments',{
+    preHandler:write,schema:{params,body:object({body:{type:'string',minLength:1,maxLength:2000,pattern:'\\S'},parentId:uuid},['body'])},
   },async(request,reply)=>{
     const articleId=request.params.id,authorId=request.actor!.id;
+    const {body,parentId}=request.body;
     const row=await db.$transaction(async tx=>{
       await lockPublished(tx,articleId);
-      return tx.comment.create({data:{articleId,authorId,body:request.body.body.trim()},select:{id:true,body:true,createdAt:true,author:{select:authorSelect}}});
+      if(parentId){
+        const parent=await tx.$queryRaw<{id:string}[]>`
+          SELECT id FROM comments
+          WHERE id = ${parentId}::uuid AND article_id = ${articleId}::uuid
+            AND parent_id IS NULL AND status = 'VISIBLE'
+          FOR SHARE`;
+        if(!parent.length)throw new ApiError(404,'COMMENT_NOT_FOUND','可回复的评论不存在');
+      }
+      return tx.comment.create({data:{articleId,authorId,parentId,body:body.trim()},select:commentSelect});
     });
     return reply.code(201).send(row);
   });
