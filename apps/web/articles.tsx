@@ -34,15 +34,24 @@ function ActivitySidebar() {
       </li>)}</ul>:<p>暂无活动</p>}
   </aside>;
 }
+const articleTabs={recommended:'推荐',latest:'最新',following:'关注'} as const;
 export function Home() {
+  const {user,loading}=useSession();
+  const location=useLocation();
   const tags=useTags();
   const [params,setParams]=useSearchParams();
   const filter=params.get('tagId')||'', word=params.get('q')||'', cursor=params.get('cursor')||'';
-  const query=new URLSearchParams();
+  const tab=params.get('tab')==='following'?'following':params.get('tab')==='latest'?'latest':'recommended';
+  const query=new URLSearchParams({tab});
   if(filter)query.set('tagId',filter);
   if(word)query.set('q',word);
   if(cursor)query.set('cursor',cursor);
-  const {data,error,refetch}=useQuery({queryKey:['articles',filter,word,cursor],queryFn:({signal})=>api<Feed>('/api/articles?'+query,'GET',undefined,signal)});
+  const {data,error,refetch}=useQuery({queryKey:['articles',tab,filter,word,cursor,tab==='following'?user?.id:undefined],enabled:tab!=='following'||!!user,queryFn:({signal})=>api<Feed>('/api/articles?'+query,'GET',undefined,signal)});
+  function changeTab(value:string) {
+    const next=new URLSearchParams(params);
+    next.delete('cursor');next.set('tab',value);
+    setParams(next);
+  }
   function select(tagId:string) {
     const next=new URLSearchParams(params);
     next.delete('cursor');
@@ -53,11 +62,12 @@ export function Home() {
   return <main className="home-grid">
     <aside className="surface filter"><h2>分类</h2><button className="subtle" aria-pressed={!filter} onClick={()=>select('')}>全部文章</button>{tags.error ? <button className="subtle" onClick={()=>void tags.refetch()}>重试分类</button> : tags.data?.map(tag=><button key={tag.id} className="subtle" aria-pressed={filter===tag.id} onClick={()=>select(tag.id)}>{tag.name}</button>)}</aside>
     <section className="surface feed"><h1>{word?'搜索结果':'技术文章'}</h1>
-    {!data ? <Pending error={error} retry={()=>void refetch()}/> : data.items.length ? data.items.map(item=><article key={item.id} className="feed-item">
+    <nav className="pulse-tabs" aria-label="文章排序">{Object.entries(articleTabs).map(([value,label])=><button key={value} className="subtle" type="button" aria-pressed={tab===value} onClick={()=>changeTab(value)}>{label}</button>)}</nav>
+    {tab==='following'&&!user?(loading?<Pending error={null} retry={()=>{}}/>:<p className="work-message"><Link to={'/login?next='+encodeURIComponent(location.pathname+location.search)} state={{background:location}}>登录后查看关注文章</Link></p>):!data ? <Pending error={error} retry={()=>void refetch()}/> : data.items.length ? data.items.map(item=><article key={item.id} className="feed-item">
       <Link className="item-title" to={'/articles/'+item.id}>{item.title}</Link>
       {item.summary && <p className="description">{item.summary}</p>}
       <div className="meta article-meta"><span>{item.author.displayName}</span><time dateTime={item.publishedAt||undefined}>{date(item.publishedAt)}</time>{item._count&&<span>{item.viewCount} 阅读 · {item._count.likes} 赞 · {item._count.comments} 评论</span>}{item.tags.map(({tag})=><button className="tag" onClick={()=>select(tag.id)} key={tag.id}>{tag.name}</button>)}</div>
-    </article>) : <div className="empty"><p>{word||filter?'没有匹配的文章':'暂无公开文章'}</p>{(word||filter)&&<button className="subtle" onClick={()=>setParams(new URLSearchParams())}>清除筛选</button>}</div>}
+    </article>) : <div className="empty"><p>{word||filter?'没有匹配的文章':tab==='following'?'关注的作者暂无公开文章':'暂无公开文章'}</p>{(word||filter)&&<button className="subtle" onClick={()=>setParams(new URLSearchParams())}>清除筛选</button>}</div>}
     {data?.nextCursor&&<button className="subtle pager" onClick={()=>{query.set('cursor',data.nextCursor!);setParams(query);window.scrollTo(0,0);}}>下一页</button>}
     </section>
     <ActivitySidebar/>

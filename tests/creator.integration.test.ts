@@ -36,6 +36,17 @@ test('creator metrics and draft lists stay scoped to the signed-in author',async
     ]});
     expect((await app.inject('/api/me/creator')).statusCode).toBe(401);
     const overview=(await app.inject({url:'/api/me/creator',headers:author.headers})).json();
+    const latest=await app.inject('/api/articles?tab=latest');
+    expect(latest.statusCode).toBe(200);
+    const recommendations=await app.inject('/api/articles?tab=recommended&limit=1');
+    expect(recommendations.statusCode).toBe(200);
+    const cursor=recommendations.json().nextCursor;
+    expect(cursor).toBeTruthy();
+    expect((await app.inject('/api/articles?tab=recommended&cursor='+cursor)).statusCode).toBe(200);
+    expect((await app.inject('/api/articles?tab=latest&cursor='+cursor)).statusCode).toBe(400);
+    expect((await app.inject('/api/articles?tab=following')).statusCode).toBe(401);
+    const followed=(await app.inject({url:'/api/articles?tab=following',headers:reader.headers})).json();
+    expect(followed.items.map((row:{id:string})=>row.id)).toEqual([visible.id]);
     const other=(await app.inject({url:'/api/me/creator',headers:reader.headers})).json();
     expect(overview.stats).toEqual({followers:1,following:0,views:12,likes:1,comments:1,bookmarks:1});
     expect(other.stats).toEqual({followers:0,following:1,views:7,likes:0,comments:0,bookmarks:0});

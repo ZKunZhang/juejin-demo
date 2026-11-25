@@ -23,11 +23,12 @@ export const articleSelect = {
 export const draftSelect = { ...articleSelect, bodyMarkdown:true, status:true, reviewStatus:true, version:true } as const;
 export const conflict = () => new ApiError(409,'STATE_CONFLICT','状态已变化，请刷新后重试');
 export const missing = () => new ApiError(404,'NOT_FOUND','内容不存在');
-const decodeCursor = (value: string, tag: string, word: string) => {
+type FeedTab='recommended'|'latest'|'following';
+const decodeCursor = (value: string, tag: string, word: string, tab:FeedTab) => {
   try {
-    const [date, id, cursorTag, cursorWord] = JSON.parse(Buffer.from(value,'base64url').toString());
-    if (typeof date !== 'string' || !Number.isFinite(Date.parse(date)) || typeof id !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || cursorTag !== tag || cursorWord !== word) throw new Error();
-    return { date: new Date(date), id };
+    const [date, id, cursorTag, cursorWord, cursorTab='latest', rank] = JSON.parse(Buffer.from(value,'base64url').toString());
+    if (typeof date !== 'string' || !Number.isFinite(Date.parse(date)) || typeof id !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || cursorTag !== tag || cursorWord !== word || cursorTab !== tab || (tab==='recommended' && (!Number.isSafeInteger(rank)||rank<0||rank>2147483647))) throw new Error();
+    return { date: new Date(date), id, rank: rank as number };
   } catch { throw new ApiError(400,'INVALID_CURSOR','分页参数无效'); }
 };
 
@@ -43,23 +44,31 @@ export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: R
     return row;
   };
   app.get('/api/tags', async () => db.tag.findMany({where:{scope:{not:'PULSE'}},select:{id:true,name:true,slug:true},orderBy:{createdAt:'asc'}}));
-  app.get<{ Querystring:{tagId?:string; cursor?:string; limit?:string; q?:string} }>('/api/articles', {
-    schema:{querystring:object({tagId:uuid,cursor:{type:'string',maxLength:1000},limit:{type:'string',pattern:'^(?:[1-9]|[1-4][0-9]|50)$'},q:{type:'string',maxLength:100}},[])},
-  }, async request => {
-    const {tagId,cursor,limit='20',q=''} = request.query;
+  app.get<{ Querystring:{tagId?:string; cursor?:string; limit?:string; q?:string; tab?:FeedTab} }>('/api/articles', {
+    schema:{querystring:object({tagId:uuid,cursor:{type:'string',maxLength:1000},limit:{type:'string',pattern:'^(?:[1-9]|[1-4][0-9]|50)$'},q:{type:'string',maxLength:100},tab:{enum:['recommended','latest','following']}},[])},
+  }, async (request,reply) => {
+    const {tagId,cursor,limit='20',q='',tab='latest'} = request.query;
     const word = q.trim();
-    const after = cursor ? decodeCursor(cursor,tagId||'',word) : null;
+    const actor=tab==='following'?await auth.findActor(request):null;
+    if(tab==='following'&&!actor)throw new ApiError(401,'UNAUTHENTICATED','请登录查看关注文章');
+    if(actor)reply.header('Cache-Control','private, no-store');
+    const after = cursor ? decodeCursor(cursor,tagId||'',word,tab) : null;
+    const orderedByDate:Prisma.ArticleWhereInput[] = after?[{publishedAt:{lt:after.date}},{publishedAt:after.date,id:{lt:after.id}}]:[];
+    const cursorFilter:Prisma.ArticleWhereInput = !after?{}:tab==='recommended'?{
+      OR:[{viewCount:{lt:after.rank}},{viewCount:after.rank,OR:orderedByDate}],
+    }:{OR:orderedByDate};
     const items = await db.article.findMany({
       where:{ status:'PUBLISHED',
         ...(tagId ? {tags:{some:{tagId}}} : {}),
         ...(word ? {AND:[{OR:[{title:{contains:word,mode:'insensitive'}},{bodyMarkdown:{contains:word,mode:'insensitive'}}]}]} : {}),
-        ...(after ? {OR:[{publishedAt:{lt:after.date}},{publishedAt:after.date,id:{lt:after.id}}]} : {}),
-      }, select:articleSelect, orderBy:[{publishedAt:'desc'},{id:'desc'}], take:Number(limit)+1,
+        ...cursorFilter,
+        ...(actor?{author:{followers:{some:{followerId:actor.id}}}}:{}),
+      }, select:articleSelect, orderBy:[...(tab==='recommended'?[{viewCount:'desc' as const}]:[]),{publishedAt:'desc'},{id:'desc'}], take:Number(limit)+1,
     });
     const extra = items.length > Number(limit);
     if (extra) items.pop();
     const last = items.at(-1);
-    return {items,nextCursor:extra&&last ? Buffer.from(JSON.stringify([last.publishedAt,last.id,tagId||'',word])).toString('base64url') : null};
+    return {items,nextCursor:extra&&last ? Buffer.from(JSON.stringify([last.publishedAt,last.id,tagId||'',word,tab,last.viewCount])).toString('base64url') : null};
   });
   app.get<{Params:Identified}>('/api/articles/:id',{schema:{params:idSchema}},async (request,reply)=>{
     const row = await db.article.findFirst({where:{id:request.params.id,status:'PUBLISHED'},select:{...articleSelect,bodyMarkdown:true}});
