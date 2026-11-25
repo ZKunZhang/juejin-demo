@@ -121,3 +121,29 @@
 .admin-date-range label{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:13px}
 .admin-date-range input{min-height:36px;max-width:100%;padding:4px 7px;border:1px solid #9aacc5;border-radius:6px;background:#fff;color:var(--ink)}
 .admin-date-range .error{width:100%;margin:0}
+.admin-shell .admin-panel .activity-editor form { max-width: none; margin-top: 16px; }
+.activity-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, .55fr);
+  gap: 16px;
+  align-items: start;
+}
+.activity-editor-fields { display: grid; gap: 16px; min-width: 0; }
+.activity-editor-section { padding: 16px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.activity-editor-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.activity-editor-pair input { width: 100%; }
+.activity-schedule-hint { margin-top: 10px; }
+.activity-preview-card { margin-top: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; }
+.activity-preview-cover { display: grid; place-items: center; width: 100%; aspect-ratio: 2 / 1; object-fit: cover; background: #f3f6fa; }
+.activity-preview-copy { display: grid; gap: 6px; padding: 12px; overflow-wrap: anywhere; }
+.activity-preview-copy h3 { margin: 0; font-size: 16px; }
+.activity-preview-status { color: var(--brand); font-size: 13px; }
+.activity-editor form > [role] { margin-top: 12px; }
+
+@media (max-width: 1000px) {
+  .activity-editor-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .activity-editor-pair { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}

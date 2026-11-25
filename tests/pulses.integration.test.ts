@@ -98,7 +98,17 @@ test('pulse publish, image validation, tag, followed feed, like and day check-in
     expect((await app.inject('/api/pulses/'+id)).statusCode).toBe(404);
     expect((await like()).statusCode).toBe(404);
     expect((await app.inject('/api/pulses/leaderboard')).json()).not.toContainEqual(expect.objectContaining({id:author.id}));
-    expect(await db.pulseReview.count({where:{pulseId:id}})).toBe(2);
+    expect((await review(reader.headers,'UNLISTED','PUBLISHED')).statusCode).toBe(403);
+    expect((await review(admin.headers,'UNLISTED','PUBLISHED')).statusCode).toBe(200);
+    expect((await review(admin.headers,'UNLISTED','PUBLISHED')).statusCode).toBe(409);
+    expect((await app.inject('/api/pulses/'+id)).statusCode).toBe(200);
+    expect((await app.inject(commentPath)).json()).toHaveLength(1);
+    expect(await db.pulseReview.findMany({where:{pulseId:id},orderBy:{createdAt:'asc'},select:{fromStatus:true,toStatus:true}})).toEqual([
+      {fromStatus:'PENDING',toStatus:'PUBLISHED'},
+      {fromStatus:'PUBLISHED',toStatus:'UNLISTED'},
+      {fromStatus:'UNLISTED',toStatus:'PUBLISHED'},
+    ]);
+    expect(await db.notification.count({where:{targetId:id}})).toBe(0);
     const check=()=>app.inject({method:'POST',url:'/api/me/checkin',headers:reader.headers});
     expect((await Promise.all([check(),check()])).map(item=>item.json())).toEqual([{checked:true},{checked:true}]);
     expect(await db.checkin.count({where:{userId:reader.id}})).toBe(1);

@@ -19,6 +19,23 @@ try {
   await admin.getByRole('link',{name:'新建活动',exact:true}).click();
   await admin.getByLabel('活动标题').fill(title);
   await admin.getByLabel('活动摘要').fill('通过后台创建和发布');
+  const preview=admin.getByRole('complementary',{name:'卡片预览'});
+  await expect(preview.getByRole('heading',{name:title,exact:true})).toBeVisible();
+  await expect(preview.getByText('通过后台创建和发布',{exact:true})).toBeVisible();
+  const coverField=admin.getByLabel('活动封面（HTTPS 图片地址）');
+  await coverField.fill('http://example.test/cover.png');
+  await expect(preview.getByText('请输入有效的 HTTPS 图片地址')).toBeVisible();
+  await admin.route('https://example.test/cover.png',route=>route.fulfill({
+    contentType:'image/png',
+    body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6WQAAAAASUVORK5CYII=','base64'),
+  }));
+  await coverField.fill('https://example.test/cover.png');
+  await expect.poll(()=>preview.getByRole('img',{name:'活动封面预览'}).evaluate(img=>img.naturalWidth).catch(()=>0)).toBe(1);
+  await coverField.clear();
+  await expect(preview.getByText('未设置封面')).toBeVisible();
+  await admin.setViewportSize({width:390,height:844});
+  assert(await admin.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await admin.setViewportSize({width:1280,height:800});
   await admin.getByRole('button',{name:'保存活动'}).click();
   await admin.waitForURL(/\/admin\/activities\/[a-f0-9-]{36}$/);
   await guest.goto(base+'/');
@@ -28,6 +45,7 @@ try {
   await stale.getByLabel('活动标题').waitFor();
   await admin.getByRole('combobox', {name:'发布状态'}).click();
   await admin.getByRole('option', {name:'已发布',exact:true}).click();
+  await expect(preview.getByText('已发布',{exact:true})).toBeVisible();
   await admin.getByRole('button',{name:'保存活动'}).click();
   await admin.getByText('活动已保存',{exact:true}).waitFor();
   await guest.reload();

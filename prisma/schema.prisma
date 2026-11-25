@@ -259,7 +259,7 @@ model ArticleBookmark {
   collection BookmarkCollection? @relation(fields: [userId, collectionId], references: [userId, id], onDelete: NoAction)
 
   @@id([userId, articleId])
-  @@index([userId, collectionId, createdAt, articleId])
+  @@index([userId, collectionId, createdAt, articleId], map: "article_bookmarks_user_id_collection_id_created_at_article_id_i")
   @@index([articleId, userId])
   @@map("article_bookmarks")
 }

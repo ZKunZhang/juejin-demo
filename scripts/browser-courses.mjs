@@ -11,6 +11,10 @@ const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || 
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
+  await page.goto(base + '/courses/');
+  await expect(page).toHaveURL(/\/courses\/[\w-]+\/lessons\/[\w-]+$/);
+  await expect(page.getByRole('navigation', { name: '课程目录' })).toBeVisible();
+  await expect(page.getByRole('region', { name: '章节评论' })).toBeVisible();
   await page.goto(base + '/courses');
   const list = page.getByRole('list', { name: '课程列表' });
   await expect(list).toBeVisible();

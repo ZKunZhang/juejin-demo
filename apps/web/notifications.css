@@ -24,3 +24,11 @@
 .notification-avatar{position:relative;display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:var(--selected);color:var(--brand);font-weight:750}
 .notification-avatar[data-unread=true]::after{content:"";position:absolute;right:-2px;top:-2px;width:8px;height:8px;border-radius:50%;background:#a32a43;box-shadow:0 0 0 2px white}
 @media(max-width:480px){.header-inner .notification-menu-panel{right:-12px}}
+
+.notification-item:has(.notification-avatar[data-unread="true"]) {
+  background: var(--hover-surface);
+}
+
+.notification-item:is(:hover, :focus-visible) { background: var(--selected); }
+.notification-item:focus-visible { outline-offset: -3px; }
+.notification-item time { font-variant-numeric: tabular-nums; }

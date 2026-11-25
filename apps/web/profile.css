@@ -105,3 +105,12 @@
   .profile-links { flex-wrap: nowrap; overflow: auto; gap: 0 6px; padding-inline: 8px; }
   .profile-entry { padding: 14px; }
 }
+
+.profile-identity {
+  background: linear-gradient(125deg, var(--selected), var(--surface) 72%);
+}
+
+.profile-identity h1, .profile-entry .item-title { overflow-wrap: anywhere; }
+.profile-entry .item-title { line-height: 1.45; }
+.profile-entry-meta { font-variant-numeric: tabular-nums; }
+.profile-links a:focus-visible { outline-offset: -3px; }

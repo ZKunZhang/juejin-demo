@@ -61,7 +61,8 @@ export function registerPulseModeration(app: FastifyInstance, db: PrismaClient,
     const { expectedStatus, status } = request.body;
     const canReview = expectedStatus === 'PENDING' && (status === 'PUBLISHED' || status === 'REJECTED');
     const canUnlist = expectedStatus === 'PUBLISHED' && status === 'UNLISTED';
-    if (!canReview && !canUnlist) throw new ApiError(400, 'INVALID_TRANSITION', '不支持此审核操作');
+    const canRelist = expectedStatus === 'UNLISTED' && status === 'PUBLISHED';
+    if (!canReview && !canUnlist && !canRelist) throw new ApiError(400, 'INVALID_TRANSITION', '不支持此审核操作');
     const reason = reviewReason(request.body.reason, status !== 'PUBLISHED');
     return db.$transaction(async tx => {
       const updated = await tx.pulse.updateMany({ where: { id, status: expectedStatus }, data: { status, reviewReason: reason } });
@@ -70,7 +71,7 @@ export function registerPulseModeration(app: FastifyInstance, db: PrismaClient,
         throw conflict();
       }
       await tx.pulseReview.create({ data: { pulseId: id, adminId: request.actor!.id, fromStatus: expectedStatus, toStatus: status, reason } });
-      if (status === 'PUBLISHED') {
+      if (expectedStatus === 'PENDING' && status === 'PUBLISHED') {
         const pulse = await tx.pulse.findUniqueOrThrow({where:{id},select:{authorId:true,body:true}});
         await notifyFollowers(tx,{actorId:pulse.authorId,targetId:id,kind:'PULSE_PUBLISHED',content:pulse.body||'图片沸点'});
       }

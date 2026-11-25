@@ -71,7 +71,9 @@ export function registerArticles(app: FastifyInstance, db: PrismaClient, auth: R
     return {items,nextCursor:extra&&last ? Buffer.from(JSON.stringify([last.publishedAt,last.id,tagId||'',word,tab,last.viewCount])).toString('base64url') : null};
   });
   app.get<{Params:Identified}>('/api/articles/:id',{schema:{params:idSchema}},async (request,reply)=>{
-    const row = await db.article.findFirst({where:{id:request.params.id,status:'PUBLISHED'},select:{...articleSelect,bodyMarkdown:true}});
+    const row = await db.article.findFirst({where:{id:request.params.id,status:'PUBLISHED'},select:{
+      ...articleSelect,bodyMarkdown:true,author:{select:{...authorSelect,avatarUrl:true}},
+    }});
     if (!row) throw missing();
     assureViewer(request,reply,secure);
     reply.header('Cache-Control','private, no-store');

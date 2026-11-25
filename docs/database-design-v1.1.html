@@ -37,7 +37,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <li><strong>管理后台。</strong>另建 React 后台入口，共用同一 API 服务。启用管理员文章审核、下架、评论隐藏与恢复，记录每次状态变更。点赞、收藏和关注接入各自的关系表。</li>
 </ol>
 <p class="note">第二步拟在开发验收环境验证直接发布。第三步上线时，正式发布改为提交审核，由管理员审核通过后公开。如果前两步也要公开部署，发布入口等审核能力就绪再启用。</p>
-<p class="muted">这份文档是本轮数据库评审基准。沸点、小册各自分阶段迁移。收藏集分组仍属于后续功能。</p>
+<p class="muted">这份文档是本轮数据库评审基准。沸点、小册各自分阶段迁移。收藏合集和两级评论已纳入当前模型。</p>
 </section>
 
 <section id="accounts">
@@ -70,13 +70,16 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <thead><tr><th>表</th><th>字段</th><th>约束与规则</th></tr></thead>
 <tbody>
 <tr><td><code>article_likes</code></td><td><code>user_id uuid</code>、<code>article_id uuid</code>、<code>created_at</code></td><td>PK <code>(user_id, article_id)</code>，分别引用用户与文章。点赞和取消按目标状态执行。</td></tr>
-<tr><td><code>article_bookmarks</code></td><td><code>user_id uuid</code>、<code>article_id uuid</code>、<code>created_at</code></td><td>PK <code>(user_id, article_id)</code>，分别引用用户与文章。收藏列表仅本人访问，收藏列表过滤已下架内容。</td></tr>
+<tr><td><code>bookmark_collections</code></td><td><code>id uuid</code>、<code>user_id uuid</code>、<code>name varchar(60)</code>、<code>created_at</code></td><td>同一用户下名称唯一。列表和条目仅本人可见。</td></tr>
+<tr><td><code>article_bookmarks</code></td><td><code>user_id uuid</code>、<code>article_id uuid</code>、<code>collection_id uuid?</code>、<code>created_at</code></td><td>PK <code>(user_id, article_id)</code>。空合集表示默认收藏。具名合集由组合外键约束为同一用户所有。列表过滤已下架文章。</td></tr>
 <tr><td><code>user_follows</code></td><td><code>follower_id uuid</code>、<code>followee_id uuid</code>、<code>created_at</code></td><td>PK <code>(follower_id, followee_id)</code>，均引用用户。数据库 CHECK 禁止自关注，Prisma 为两个用户关系分别命名。</td></tr>
-<tr><td><code>comments</code></td><td><code>id uuid</code>、<code>article_id uuid</code>、<code>author_id uuid</code>、<code>body text</code>、<code>status CommentStatus</code>、<code>created_at</code>、<code>updated_at</code></td><td>PK <code>id</code>，引用文章、用户。一级评论，状态 <code>VISIBLE / HIDDEN</code>，默认 VISIBLE。公开接口同时检查文章已发布。</td></tr>
-<tr><td><code>article_review_logs</code></td><td><code>id uuid</code>、<code>article_id uuid</code>、<code>actor_id uuid</code>、<code>article_version integer</code>、<code>action</code>、<code>from_status</code>、<code>to_status</code>、<code>from_review_status</code>、<code>to_review_status</code>、<code>reason text?</code>、<code>created_at</code></td><td>PK <code>id</code>，引用文章、操作人。追加记录提交、批准、驳回、下架及转回草稿。驳回与下架必须填写原因。</td></tr>
+<tr><td><code>comments</code></td><td><code>id</code>、<code>article_id</code>、<code>author_id</code>、<code>parent_id?</code>、<code>body</code>、<code>status</code>、创建及更新时间</td><td>一级评论的父级为空。二级回复引用同一文章的一级评论。公开读取要求文章已发布，回复及其父评论可见。</td></tr>
+<tr><td><code>comment_likes</code></td><td><code>user_id</code>、<code>comment_id</code>、<code>created_at</code></td><td>组合主键按用户和评论去重，点赞数按关系聚合。</td></tr>
+<tr><td><code>article_review_logs</code></td><td><code>id uuid</code>、<code>article_id uuid</code>、<code>actor_id uuid</code>、<code>article_version integer</code>、<code>action</code>、<code>from_status</code>、<code>to_status</code>、<code>from_review_status</code>、<code>to_review_status</code>、<code>reason text?</code>、<code>created_at</code></td><td>PK <code>id</code>，引用文章、操作人。追加记录提交、批准、驳回、下架、重新上架及转回草稿。驳回与下架必须填写原因。</td></tr>
 <tr><td><code>comment_moderation_logs</code></td><td><code>id uuid</code>、<code>comment_id uuid</code>、<code>admin_id uuid</code>、<code>from_status</code>、<code>to_status</code>、<code>reason text?</code>、<code>created_at</code></td><td>PK <code>id</code>，引用评论、管理员。隐藏和恢复都追加操作记录，隐藏须说明原因。</td></tr>
 </tbody></table></div>
 <p>文章只存内容和生命周期字段。点赞数、收藏数和关注统计从关系表按需聚合，列表批量查询。标签、点赞、收藏和关注的组合主键同时负责防重。</p>
+<p>文章和沸点评论的数据库触发器拒绝跨内容回复、自引用及三级回复。评论写入后，ID、所属内容和父级固定，审核仍可更改评论状态。触发器及数据库 CHECK 规则由版本化 SQL 迁移维护。</p>
 </section>
 
 <section id="content-expansion">
@@ -85,10 +88,13 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px
 <thead><tr><th>表</th><th>用途与约束</th></tr></thead>
 <tbody>
 <tr><td><code>articles.view_count</code> / <code>article_view_windows</code></td><td>累积阅读量与会话去重。窗口表按文章、会话标识摘要组成主键，同浏览器会话 30 分钟只计一次。</td></tr>
-<tr><td><code>pulses</code></td><td>UUID、作者、正文、图片地址数组、精选状态和创建时间。正文或图片至少有一项，图片最多四张。</td></tr>
+<tr><td><code>pulses</code></td><td>UUID、作者、正文、图片地址数组、精选状态、审核状态、处理原因和创建时间。正文或图片至少有一项，图片最多四张。</td></tr>
 <tr><td><code>tags.scope</code> / <code>pulse_tags</code></td><td>标签可通用、文章专用或沸点专用。沸点话题用显式关系表，组合主键为沸点和标签 ID。</td></tr>
 <tr><td><code>pulse_likes</code> / <code>checkins</code></td><td>按用户和沸点去重点赞，按用户和北京时间日期去重签到。关注复用 <code>user_follows</code>。</td></tr>
+<tr><td><code>pulse_comments</code> / <code>pulse_comment_likes</code></td><td>沸点两级评论、父级可见性和点赞去重规则与文章评论一致。公开接口同时检查沸点已发布。</td></tr>
+<tr><td><code>pulse_reviews</code> / <code>pulse_comment_reviews</code></td><td>按操作追加管理员、前后状态、原因和时间。恢复已下架沸点保留原评论和点赞，不重复发送发布通知。</td></tr>
 <tr><td><code>course_categories</code> / <code>courses</code> / <code>course_lessons</code></td><td>分类与作者关联、难度与发布状态。章节按小册和位置唯一，公开接口同时检查课程和章节发布状态。</td></tr>
+<tr><td><code>course_lesson_comments</code></td><td>评论按章节隔离，保存作者、正文和创建时间。读取和发表同时检查课程与章节已公开且归属匹配。</td></tr>
 </tbody></table></div>
 <h3>沸点参考数据映射</h3>
 <p><code>msg_Info.content / pic_list / ctime</code> 对应正文、图片和创建时间；<code>topic</code> 对应本地话题；<code>author_user_info</code> 使用本地作者公开昵称与头像；<code>user_interact</code> 的点赞、关注状态来自当前会话和关系表。点赞数实时聚合。演示内容使用本地账号、UUID 与时间戳，外站 ID、计数、权限、审核值与成长分不进入本地模型。</p>

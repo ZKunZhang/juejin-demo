@@ -1,29 +1,32 @@
 :root.community {
-  --bg: #f4f6f8;
-  --ink: #202939;
-  --muted: #535f70;
-  --line: #e7ebf0;
-  --brand: #135ddb;
-  --selected: #eaf2ff;
-  --radius: 6px;
-  --shadow: none;
+  --bg: #f5f5fa;
+  --ink: #211e35;
+  --muted: #58556c;
+  --line: #e5e3ed;
+  --brand: #4b36a6;
+  --selected: #eeebfb;
+  --radius: 12px;
+  --shadow: 0 2px 5px #28204a05;
+  --hover-surface: #faf9fe;
+  --input-line: #d2cddd;
+  --reading-leading: 1.85;
   font-size: 15px;
 }
 
 .community .primary,
 .community .subtle {
-  border-radius: 5px;
+  border-radius: 8px;
 }
 
 .community .primary:hover {
-  background: #104db8;
+  background: #382681;
 }
 
 .community .site-header .search {
   margin-left: auto;
   gap: 0;
-  border: 1px solid #d6dde6;
-  border-radius: 5px;
+  border: 1px solid var(--input-line);
+  border-radius: 8px;
   background: var(--bg);
 }
 
@@ -132,13 +135,13 @@
 }
 
 .feed-item {
-  padding: 16px 20px;
+  padding: 18px clamp(16px, 2.5vw, 26px);
   overflow-wrap: anywhere;
 }
 
 .feed-item:hover,
 .feed-item:focus-within {
-  background: #f8faff;
+  background: var(--hover-surface);
 }
 
 .feed-item:last-child,
@@ -151,7 +154,7 @@
 }
 
 .feed .description {
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
 }
 
 .community .tag {
@@ -201,4 +204,69 @@
   .home-grid .filter h2 {
     flex: none;
   }
+}
+
+
+.community .wordmark .brand-mark {
+  background: linear-gradient(145deg, #6852c2, var(--brand));
+  box-shadow: 0 2px 6px #4b36a633;
+}
+
+.community .header-inner > nav a {
+  white-space: nowrap;
+}
+
+.community .header-inner > nav a:hover {
+  color: var(--brand);
+}
+
+.feed-item:last-child { border-end-start-radius: var(--radius); border-end-end-radius: var(--radius); }
+.feed .item-title { line-height: 1.45; }
+.feed .description { margin-top: 6px; }
+.feed .article-meta { margin-top: 10px; }
+.feed .article-meta > * { min-width: 0; }
+.feed .meta { font-variant-numeric: tabular-nums; }
+
+.community .detail > h1 {
+  line-height: 1.25;
+  margin-bottom: 16px;
+}
+
+.community .markdown {
+  font-size: 1.067rem;
+  line-height: var(--reading-leading);
+}
+
+.community .markdown :is(h2, h3, h4) {
+  line-height: 1.4;
+  margin-block: 1.45em .45em;
+}
+
+.community .markdown p { margin-block: .8em; }
+.community .markdown pre { border: 1px solid var(--line); line-height: 1.6; }
+.community .markdown img { height: auto; border-radius: 8px; }
+.community .markdown blockquote {
+  padding-block: 2px;
+  border-inline-start-color: var(--brand);
+  background: var(--hover-surface);
+}
+
+@media (max-width: 767px) {
+  :root.community { scroll-padding-top: 160px; }
+
+  .community .header-inner > nav {
+    order: 3;
+    flex: 1 0 100%;
+    gap: 16px;
+  }
+
+  .community .header-inner > nav a:nth-child(2) { display: flex; }
+  .community .header-inner > nav a { min-height: 44px; align-content: center; }
+  .community .site-header .search { min-width: 0; }
+  .community .account .profile-link .nickname { max-width: 52px; }
+}
+
+@media (max-width: 380px) {
+  .community .account .profile-link .nickname { display: none; }
+  .community .account > .subtle { padding-inline: 6px; }
 }

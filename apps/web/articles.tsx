@@ -7,11 +7,12 @@ import { Markdown, MarkdownWithToc } from './markdown';
 import { ArticleInteractions } from './interactions';
 import { ArticleIcon } from './article-icons';
 import './creator.css';
+import './article-detail.css';
 
 export type Tag = {id:string;name:string;slug:string};
 export type Article = {
   id:string;title:string;summary:string|null;bodyMarkdown:string;
-  author:{id:string;displayName:string;username:string};tags:{tag:Tag}[];publishedAt:string|null;
+  author:{id:string;displayName:string;username:string;avatarUrl?:string|null};tags:{tag:Tag}[];publishedAt:string|null;
   status:'DRAFT'|'PUBLISHED'|'UNLISTED';reviewStatus:'NOT_SUBMITTED'|'PENDING'|'APPROVED'|'REJECTED';version:number;
   viewCount:number;
   _count?:{likes:number;comments:number};
@@ -95,24 +96,39 @@ export function ArticlePage() {
   const shareMessage=shareStatus?.id===item.id?shareStatus.message:'';
   const readCount=counted&&counted.id===item.id ? Math.max(counted.count,item.viewCount) : item.viewCount;
   return <ArticleInteractions key={item.id} article={item}>{({actions,follow,comments})=><main className="detail-grid">
-    <div className="detail-actions">
-      {actions}
-      <Link className="subtle article-action-icon" to="/" aria-label="文章列表" title="文章列表"><ArticleIcon name="list"/></Link>
-      <button type="button" className="subtle article-action-icon" aria-label="分享" title="分享" onClick={async()=>{
-        try {
-          await navigator.clipboard.writeText(location.href);
-          setShareStatus({id:item.id,message:'已复制'});
-        } catch {
-          setShareStatus({id:item.id,message:'复制失败'});
-        }
-      }}><ArticleIcon name={shareMessage==='已复制'?'check':'share'}/></button>
-      {shareMessage&&<span className="meta" role="status">{shareMessage}</span>}
-    </div>
+    <nav className="surface detail-actions" aria-label="文章操作">
+      <div className="detail-action-group">{actions}</div>
+      <div className="detail-action-group">
+        <Link className="subtle article-action-icon" to="/" aria-label="文章列表" title="文章列表"><ArticleIcon name="list"/></Link>
+        <button type="button" className="subtle article-action-icon" aria-label="分享" title="分享" onClick={async()=>{
+          try {
+            await navigator.clipboard.writeText(location.href);
+            setShareStatus({id:item.id,message:'已复制'});
+          } catch {
+            setShareStatus({id:item.id,message:'复制失败'});
+          }
+        }}><ArticleIcon name={shareMessage==='已复制'?'check':'share'}/></button>
+      </div>
+      {shareMessage&&<span className="article-share-status" role="status">{shareMessage}</span>}
+    </nav>
     <article className="surface detail">
       <h1>{item.title}</h1><div className="meta article-meta"><span>{item.author.displayName}</span><time dateTime={item.publishedAt||undefined}>{date(item.publishedAt)}</time>{item._count&&<span>{readCount} 阅读 · {item._count.likes} 赞 · {item._count.comments} 评论</span>}{item.tags.map(({tag})=><Link className="tag" to={'/?tagId='+tag.id} key={tag.id}>{tag.name}</Link>)}</div>
-      <MarkdownWithToc source={item.bodyMarkdown} after={comments} aside={<><section className="surface side"><h2>作者</h2><p>{item.author.displayName}</p>{follow}</section>{!!item.related?.length&&<section className="surface side"><h2>相关推荐</h2><ul className="toc-list">{item.related.map(row=><li key={row.id}><Link to={'/articles/'+row.id}>{row.title}</Link></li>)}</ul></section>}</>}/>
+      <MarkdownWithToc source={item.bodyMarkdown} after={comments} aside={<><ArticleAuthor key={item.author.id} author={item.author} follow={follow}/>{!!item.related?.length&&<section className="surface side"><h2>相关推荐</h2><ul className="toc-list">{item.related.map(row=><li key={row.id}><Link to={'/articles/'+row.id}>{row.title}</Link></li>)}</ul></section>}</>}/>
     </article>
   </main>}</ArticleInteractions>;
+}
+function ArticleAuthor({author,follow}:{author:Article['author'];follow:React.ReactNode}) {
+  const [failed,setFailed]=useState<string>();
+  const avatar=author.avatarUrl && /^https?:\/\//i.test(author.avatarUrl) && author.avatarUrl!==failed ? author.avatarUrl : null;
+  return <section className="surface article-author-card">
+    <h2>作者</h2>
+    <div className="article-author-identity">
+      {avatar ? <img className="avatar" src={avatar} alt="" referrerPolicy="no-referrer" onError={()=>setFailed(avatar)}/> :
+        <span className="avatar" aria-hidden="true">{Array.from(author.displayName)[0]}</span>}
+      <strong>{author.displayName}</strong>
+    </div>
+    {follow && <div className="article-author-actions">{follow}</div>}
+  </section>;
 }
 export const statusText=(row:Pick<Article,'status'|'reviewStatus'>)=>row.status==='PUBLISHED'?'已发布':row.status==='UNLISTED'?'已下架':row.reviewStatus==='PENDING'?'待审核':row.reviewStatus==='REJECTED'?'已驳回':'草稿';
 export function Creator() {

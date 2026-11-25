@@ -21,3 +21,15 @@
 .profile-activity-label { display: flex; align-items: center; gap: 7px; padding: 12px 22px 0; }
 .profile-activity-label svg { width: 16px; height: 16px; }
 .profile-activity-entry + .profile-activity-entry { border-top: 1px solid var(--line); }
+
+.bookmark-dialog {
+  max-height: calc(100dvh - 28px);
+}
+
+.bookmark-collections li a {
+  border-radius: 8px;
+  padding-inline: 8px;
+}
+
+.bookmark-collections li a:is(:hover, :focus-visible) { background: var(--hover-surface); }
+.bookmark-collections-heading { flex-wrap: wrap; }

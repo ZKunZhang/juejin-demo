@@ -80,6 +80,11 @@ describe('authentication with PostgreSQL', () => {
     expect((await write('logout')).statusCode).toBe(204);
     expect((await me(old)).statusCode).toBe(401);
     expect((await me(second)).statusCode).toBe(200);
+    for (const path of ['/api/me/bookmarks', '/api/me/following']) {
+      const reply = await app.inject({url:path,headers:{cookie:cookieHeader(second)}});
+      expect(reply.statusCode).toBe(200);
+      expect(reply.headers['cache-control']).toBe('private, no-store');
+    }
     const tokenHash = digest(second.get(sessionName)!);
     await db.session.update({where:{tokenHash},data:{expiresAt:new Date(0)}});
     expect((await me(second)).statusCode).toBe(401);

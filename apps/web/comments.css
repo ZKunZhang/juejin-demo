@@ -114,3 +114,14 @@
 .comment-pagination { justify-content:flex-end }
 .comment-replies .comment-reply-actions { margin-inline-start:calc(var(--comment-avatar-size) + var(--comment-gap)) }
 .comment-replies .comment-reply-actions .comment-like { margin-inline-start:0 }
+
+.comment-form textarea {
+  border-color: var(--input-line, var(--line));
+  background: var(--hover-surface, var(--bg));
+  line-height: 1.65;
+}
+
+.comment-form textarea:focus { background: var(--surface); }
+.comment-text { line-height: 1.7; }
+.comment-heading { gap: 6px 10px; }
+.comment-sort, .comment-pagination { flex-wrap: wrap; }

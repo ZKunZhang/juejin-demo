@@ -10,7 +10,7 @@ import './courses.css';
 type Category = { id: string; name: string; slug: string };
 type Level = 'BEGINNER' | 'ADVANCED';
 type Card = { id: string; title: string; summary: string; level: Level; category: Category; author: { displayName: string }; _count: { lessons: number } };
-type Course = Card & { description: string; lessons: { id: string; title: string; position: number }[]; related: Card[] };
+export type Course = Card & { description: string; lessons: { id: string; title: string; position: number }[]; related: Card[] };
 type Lesson = { id: string; title: string; body: string; position: number; course: { id: string; title: string } };
 const levels: Record<Level, string> = { BEGINNER: '入门', ADVANCED: '进阶' };
 

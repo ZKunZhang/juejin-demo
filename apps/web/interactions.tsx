@@ -43,7 +43,7 @@ export function ArticleInteractions({article,children}:{article:Article;children
     const active=state.data?.[kind]||false;
     const label=active?off:on;
     const content=icon?<><ArticleIcon name={icon}/>
-      {icon==='bookmark' ? <span>{active?'已收藏':'收藏'}</span> : count!==undefined&&<span>{count}</span>}
+      {count!==undefined&&<span className="article-action-count">{count}</span>}
     </>:label;
     const className=icon==='bookmark'?'subtle article-action-icon article-bookmark-action':icon?'subtle article-action-icon':'subtle';
     return user ? <button className={className} aria-label={label} title={icon?label:undefined}
@@ -54,7 +54,7 @@ export function ArticleInteractions({article,children}:{article:Article;children
     actions:<>
       {action('liked','/api/articles/'+article.id+'/like','点赞','取消点赞','like',article._count?.likes)}
       <a className="subtle article-action-icon" href="#article-comments" aria-label="评论" title="评论">
-        <ArticleIcon name="comment"/>{article._count&&<span>{article._count.comments}</span>}
+        <ArticleIcon name="comment"/>{article._count&&<span className="article-action-count">{article._count.comments}</span>}
       </a>
       {action('bookmarked','/api/articles/'+article.id+'/bookmark','收藏','管理收藏','bookmark')}
       {state.error&&<button className="subtle" onClick={()=>void state.refetch()}>重试互动状态</button>}

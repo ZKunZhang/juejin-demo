@@ -82,7 +82,8 @@ export function registerInteractions(app:FastifyInstance,db:PrismaClient,auth:Re
       return {liked:active,likeCount:await tx.commentLike.count({where:{commentId}})};
     });
   });
-  app.get<{Params:Params}>('/api/articles/:id/interaction',{schema:{params},preHandler:auth.requireUser},async request=>{
+  app.get<{Params:Params}>('/api/articles/:id/interaction',{schema:{params},preHandler:auth.requireUser},async (request,reply)=>{
+    reply.header('Cache-Control','private, no-store');
     const userId=request.actor!.id;
     const row=await db.article.findFirst({where:{id:request.params.id,status:'PUBLISHED'},select:{
       likes:{where:{userId},select:{userId:true},take:1},
@@ -257,11 +258,15 @@ export function registerInteractions(app:FastifyInstance,db:PrismaClient,auth:Re
       ...follows.map(row=>({kind:'follow',at:row.createdAt,item:row.followee})),
     ].sort((a,b)=>b.at.getTime()-a.at.getTime()).slice(0,take);
   });
-  app.get('/api/me/bookmarks',{preHandler:auth.requireUser},async request=>db.article.findMany({
-    where:{status:'PUBLISHED',bookmarks:{some:{userId:request.actor!.id}}},select:articleSelect,
-    orderBy:[{publishedAt:'desc'},{id:'desc'}],take:100,
-  }));
-  app.get('/api/me/following',{preHandler:auth.requireUser},async request=>{
+  app.get('/api/me/bookmarks',{preHandler:auth.requireUser},async (request,reply)=>{
+    reply.header('Cache-Control','private, no-store');
+    return db.article.findMany({
+      where:{status:'PUBLISHED',bookmarks:{some:{userId:request.actor!.id}}},select:articleSelect,
+      orderBy:[{publishedAt:'desc'},{id:'desc'}],take:100,
+    });
+  });
+  app.get('/api/me/following',{preHandler:auth.requireUser},async (request,reply)=>{
+    reply.header('Cache-Control','private, no-store');
     const relations=await db.userFollow.findMany({where:{followerId:request.actor!.id,followee:{status:'ACTIVE'}},select:{followee:{select:authorSelect}},orderBy:{createdAt:'desc'},take:100});
     return relations.map(row=>row.followee);
   });

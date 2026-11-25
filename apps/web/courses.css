@@ -133,3 +133,17 @@
   .course-list-info { gap: 5px; }
   .course-hero { align-items: start; }
 }
+
+.course-filter { gap: 10px 16px; }
+.course-list a { overflow-wrap: anywhere; }
+.course-list a:hover { background: var(--hover-surface); }
+.course-list a:focus-visible { outline-offset: -3px; }
+.course-list-info h2 { line-height: 1.35; }
+.course-hero-info p { line-height: 1.75; }
+.course-reading > h1 { margin-bottom: 12px; }
+.course-directory a:focus-visible { outline-offset: -3px; }
+
+@media (max-width: 460px) {
+  .course-filter h1 { flex-basis: 100%; }
+  .course-filter-field { flex-wrap: wrap; max-width: 100%; }
+}

@@ -74,7 +74,7 @@ export function PulseReview({ featured = false }: { featured?: boolean }) {
               {item.featured ? '取消精选' : '设为精选'}
             </button>}
             <button className="subtle" onClick={() => { setSelected({id:item.id,action:'review'}); setNotice(''); }}>
-              {item.status === 'PENDING' ? '审核' : item.status === 'PUBLISHED' ? '下架' : '查看'}
+              {item.status === 'PENDING' ? '审核' : item.status === 'PUBLISHED' ? '下架' : item.status === 'UNLISTED' ? '恢复展示' : '查看'}
             </button>
             <Link className="subtle" to={'/comments/pulses?pulseId='+item.id}>评论审核{item._count?.comments != null ? '（' + item._count.comments + '）' : ''}</Link>
           </div></td>
@@ -111,7 +111,7 @@ function PulseDialog({ pulse, featured, close, refresh, done }: {
     }
   }
   function moderate(status: PulseStatus) {
-    const notice = status === 'PUBLISHED' ? '审核已通过' : status === 'REJECTED' ? '审核已拒绝' : '沸点已下架';
+    const notice = status === 'PUBLISHED' ? (pulse.status === 'UNLISTED' ? '沸点已恢复展示' : '审核已通过') : status === 'REJECTED' ? '审核已拒绝' : '沸点已下架';
     return save('status', { expectedStatus: pulse.status, status, ...(status === 'PUBLISHED' ? {} : { reason: reason.trim() }) }, notice);
   }
   const pending = pulse.status === 'PENDING';
@@ -135,6 +135,9 @@ function PulseDialog({ pulse, featured, close, refresh, done }: {
       </> : <button className="primary" disabled={busy || !reason.trim()} onClick={() => void moderate('UNLISTED')}>下架</button>}</div>
     </>}
     {failure && <p className="error" role="alert">{failure} <button className="subtle" onClick={() => { setFailure(''); void refresh(); }}>刷新</button></p>}
+    {!featured && pulse.status === 'UNLISTED' && <div className="editor-actions">
+      <button className="primary" disabled={busy} onClick={() => void moderate('PUBLISHED')}>恢复展示</button>
+    </div>}
   </AdminDialog>;
 }
 

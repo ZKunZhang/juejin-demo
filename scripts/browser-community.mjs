@@ -57,7 +57,7 @@ try {
   await author.getByRole('link',{name:'全部文章',exact:true}).click();
   await author.getByRole('listitem').filter({hasText:title}).getByText('待审核',{exact:true}).waitFor();
   await admin.reload();
-  await admin.getByRole('button',{name:'审核通过',exact:true}).click();
+  await admin.getByRole('button',{name:'审核通过并上架',exact:true}).click();
   await admin.getByText('审核通过成功',{exact:true}).waitFor();
   await guest.goto(base+'/articles/'+articleId);
   await guest.getByRole('heading',{name:title,exact:true}).waitFor();
@@ -90,10 +90,12 @@ try {
     await reader.getByLabel('发表评论').fill(comments[i]);
     await reader.getByRole('button',{name:'发表评论'}).click();
     await reader.getByText(comments[i],{exact:true}).waitFor();
-    for(const [name,changed] of [['点赞','取消点赞'],['关注作者','取消关注']]){
-      await reader.getByRole('button',{name,exact:true}).click();
-      await reader.getByRole('button',{name:changed,exact:true}).waitFor();
-    }
+    await reader.getByRole('button',{name:'点赞',exact:true}).click();
+    await reader.getByRole('button',{name:'取消点赞',exact:true}).waitFor();
+    const readerId=i===0?ids.reader_beta:ids.reader_gamma;
+    if(!followBefore.rows.some(row=>row.follower_id===readerId))
+      await reader.getByRole('button',{name:'关注作者',exact:true}).click();
+    await reader.getByRole('button',{name:'取消关注',exact:true}).waitFor();
     await reader.getByRole('button',{name:'收藏',exact:true}).click();
     await reader.getByRole('button',{name:'保存到合集',exact:true}).click();
     await reader.getByRole('button',{name:'管理收藏',exact:true}).waitFor();

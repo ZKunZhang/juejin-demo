@@ -106,3 +106,9 @@
   .creator-editor-header .creator-editor-title { order: -1; flex-basis: 65%; }
   .creator-editor-toolbar .creator-editor-settings-panel { left: 0; right: auto; }
 }
+
+.creator-metrics > div { background: var(--hover-surface, var(--bg)); }
+.creator-metrics dd { font-variant-numeric: tabular-nums; }
+.creator-editor-toolbar, .creator-input-pane { background: var(--hover-surface, var(--bg)); }
+.creator-input-pane textarea { line-height: 1.65; }
+.creator-editor-footer { flex-wrap: wrap; overflow-wrap: anywhere; }

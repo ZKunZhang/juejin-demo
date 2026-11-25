@@ -53,3 +53,10 @@
   .leaderboard-author { gap: 5px; }
   .leaderboard-author .leaderboard-avatar { width: 27px; height: 27px; border-radius: 7px; }
 }
+
+.leaderboard-board {
+  background: linear-gradient(155deg, var(--selected), var(--surface) 50%);
+}
+
+.leaderboard-table :is(td, th) { font-variant-numeric: tabular-nums; }
+.leaderboard-author { overflow-wrap: anywhere; }
