@@ -12,7 +12,7 @@
 | `/admin/activities/new` | 输入内容与展示设置，预览卡片并保存 |
 | `/admin/activities/:id` | 编辑既有活动，携带版本更新 |
 
-活动外链使用新标签打开并带 `rel="noreferrer"`。没有外链时标题显示为普通文本。公开封面加载失败会隐藏图片，后台预览显示封面失败或地址格式反馈。相关调用见 [首页活动区域](../../apps/web/articles.tsx)、[创作者活动区域](../../apps/web/creator.tsx)和[后台活动页](../../apps/admin/activities.tsx)。
+活动外链使用新标签打开并带 `rel="noreferrer"`。没有外链时标题显示为普通文本。公开封面加载失败会隐藏图片，后台预览显示封面失败或地址格式反馈。相关调用见 [首页活动区域](../../apps/web/features/articles/articles.tsx)、[创作者活动区域](../../apps/web/features/creator/creator.tsx)和[后台活动页](../../apps/admin/features/activities/activities.tsx)。
 
 ## 数据模型
 
@@ -45,7 +45,7 @@
 
 开始或结束为空时，对应一端没有时间限制。两端都有值时要求 `visibleFrom < visibleTo`。公开查询使用服务端当前时间，按 `sortOrder` 升序、ID 升序返回最多 5 条。后台列表可以查看全部状态。状态通过保存活动表单设置，已下架活动可重新保存为已发布，实际显示仍受时间区间约束。
 
-活动没有单独的审核状态。每次保存记录最后配置人和版本，当前模型没有活动操作历史表。查询与状态规则见 [活动 API](../../apps/api/activities.ts)。
+活动没有单独的审核状态。每次保存记录最后配置人和版本，当前模型没有活动操作历史表。查询与状态规则见 [活动 API](../../apps/api/features/activities/activities.ts)。
 
 ## API 和权限
 
@@ -61,13 +61,13 @@
 
 后台读取要求 ADMIN，会话缺失返回 401，普通用户返回 403。写入还经过来源和 CSRF 校验。请求只接受 Schema 声明字段，管理员身份由服务端会话确定。
 
-创建必须提交标题、摘要、跳转地址或 null、状态、顺序及两个展示时间或 null。`coverUrl` 可省略。更新同样使用整表单参数并携带版本，省略 `coverUrl` 会保留原封面，传 null 或空白内容清空封面。[活动 API](../../apps/api/activities.ts)
+创建必须提交标题、摘要、跳转地址或 null、状态、顺序及两个展示时间或 null。`coverUrl` 可省略。更新同样使用整表单参数并携带版本，省略 `coverUrl` 会保留原封面，传 null 或空白内容清空封面。[活动 API](../../apps/api/features/activities/activities.ts)
 
 ## 日期筛选与时区
 
 后台列表的 `from`、`to` 按活动创建日期筛选，与活动的展示时间字段分别计算。参数采用 `YYYY-MM-DD`。日期筛选以北京时间零点为起点，结束日期包含当天，并转换成下一天北京时间零点的排他上界。
 
-前台编辑器的展示时间输入采用浏览器本地时间，提交前转为 ISO 时间点。重新加载时再转回本地输入格式。创建日期筛选中的无效日期、起止倒置返回 400。[日期筛选转换](../../apps/api/admin-date-range.ts)
+前台编辑器的展示时间输入采用浏览器本地时间，提交前转为 ISO 时间点。重新加载时再转回本地输入格式。创建日期筛选中的无效日期、起止倒置返回 400。[日期筛选转换](../../apps/api/shared/admin-date-range.ts)
 
 ## 后台编辑交互
 

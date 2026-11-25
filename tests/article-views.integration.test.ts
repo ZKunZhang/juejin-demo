@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
 import { expect,test } from 'vitest';
-import { buildApp } from '../apps/api/app';
-import { connectDatabase } from '../apps/api/db';
+import { buildApp } from '../apps/api/app/app';
+import { connectDatabase } from '../apps/api/shared/db';
 
 const origin='http://127.0.0.1:5173';
 const url=process.env.TEST_DATABASE_URL;

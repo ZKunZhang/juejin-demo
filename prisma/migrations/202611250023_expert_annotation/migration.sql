@@ -28,7 +28,7 @@ CREATE TABLE "expert_annotations" (
   CONSTRAINT "expert_annotations_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "expert_annotations_submission_state" CHECK (
     ("status" = 'CLAIMED' AND "response" IS NULL AND "submitted_at" IS NULL)
-    OR ("status" = 'SUBMITTED' AND "response" IS NOT NULL AND "response" ~ '[^[:space:]]' AND char_length("response") <= 10000 AND "submitted_at" IS NOT NULL)
+    OR ("status" = 'SUBMITTED' AND "response" ~ '[^[:space:]]' AND char_length("response") <= 10000 AND "submitted_at" IS NOT NULL)
   )
 );
 CREATE INDEX "expert_annotations_user_id_claimed_at_idx" ON "expert_annotations"("user_id", "claimed_at");

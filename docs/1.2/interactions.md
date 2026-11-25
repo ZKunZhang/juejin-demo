@@ -13,7 +13,7 @@
 | 取消关注 | 作者区、个人页关注用户列表 | 删除当前关注者的对应关系 |
 | 每日签到 | 沸点页右栏「我的沸点」 | 用户与北京时间自然日的关系 |
 
-写接口提交期望状态，例如 `{ "active": true }` 表示希望处于已点赞或已关注状态。用户重复点击或请求重试时，组合主键和去重插入保证关系最多一条。页面成功后读取或更新服务端确认状态。[互动接口](../../apps/api/interactions.ts) · [沸点互动](../../apps/api/pulses.ts)
+写接口提交期望状态，例如 `{ "active": true }` 表示希望处于已点赞或已关注状态。用户重复点击或请求重试时，组合主键和去重插入保证关系最多一条。页面成功后读取或更新服务端确认状态。[互动接口](../../apps/api/features/community/interactions.ts) · [沸点互动](../../apps/api/features/pulses/pulses.ts)
 
 ## 数据表与约束
 
@@ -44,7 +44,7 @@
 | `GET /api/me/checkin` | 当前会话 | `{ checked }` |
 | `POST /api/me/checkin` | 当前会话 | `{ checked: true }` |
 
-文章互动状态、个人收藏和关注列表均由当前会话确定用户，这三类读取设置 `Cache-Control: private, no-store`。写接口要求来源、CSRF 和已登录会话，客户端禁止通过请求指定实际写入者。[互动接口](../../apps/api/interactions.ts) · [签到接口](../../apps/api/pulses.ts) · [公共写保护](../../apps/api/app.ts)
+文章互动状态、个人收藏和关注列表均由当前会话确定用户，这三类读取设置 `Cache-Control: private, no-store`。写接口要求来源、CSRF 和已登录会话，客户端禁止通过请求指定实际写入者。[互动接口](../../apps/api/features/community/interactions.ts) · [签到接口](../../apps/api/features/pulses/pulses.ts) · [公共写保护](../../apps/api/app/app.ts)
 
 ## 文章与沸点点赞
 
@@ -55,15 +55,15 @@
 3. 点击取消提交 `{ active: false }`，只删除本人的关系。
 4. 前端使用返回状态更新操作按钮，并使文章详情、列表和个人数据查询失效。
 
-文章新增点赞要求公开状态。取消文章点赞通过关系删除完成，支持清理原先对已下架文章的关系。点赞总数从关系表聚合，页面不以点击次数累加权威统计。[文章调用和缓存刷新](../../apps/web/interactions.tsx)
+文章新增点赞要求公开状态。取消文章点赞通过关系删除完成，支持清理原先对已下架文章的关系。点赞总数从关系表聚合，页面不以点击次数累加权威统计。[文章调用和缓存刷新](../../apps/web/features/engagement/interactions.tsx)
 
 ### 沸点点赞流程
 
-列表和详情响应已经携带 `liked`、`following` 与点赞总数。点赞和取消都在事务内确认并锁定已发布沸点，再写入或删除关系。下架沸点的点赞写入返回不可访问。成功后刷新沸点列表、详情和排行榜查询。[沸点接口](../../apps/api/pulses.ts) · [沸点前台](../../apps/web/pulses.tsx)
+列表和详情响应已经携带 `liked`、`following` 与点赞总数。点赞和取消都在事务内确认并锁定已发布沸点，再写入或删除关系。下架沸点的点赞写入返回不可访问。成功后刷新沸点列表、详情和排行榜查询。[沸点接口](../../apps/api/features/pulses/pulses.ts) · [沸点前台](../../apps/web/features/pulses/pulses.tsx)
 
 ## 收藏和合集选择
 
-文章收藏弹窗读取当前账号的合集，包含默认收藏。用户可以选已有合集、在弹窗中创建新合集、保存归属或取消收藏。提交期间禁用选择和重复操作，失败在弹窗中显示并保留当前选择。合集和弹窗 UI 复用 `AppSelect`，弹层挂载到所属对话框以支持原生模态窗口。[收藏弹窗](../../apps/web/bookmark-collections.tsx) · [共享选择器](../../apps/web/select.tsx)
+文章收藏弹窗读取当前账号的合集，包含默认收藏。用户可以选已有合集、在弹窗中创建新合集、保存归属或取消收藏。提交期间禁用选择和重复操作，失败在弹窗中显示并保留当前选择。合集和弹窗 UI 复用 `AppSelect`，弹层挂载到所属对话框以支持原生模态窗口。[收藏弹窗](../../apps/web/features/bookmarks/bookmark-collections.tsx) · [共享选择器](../../apps/shared/ui/select.tsx)
 
 `collectionId` 的三种输入有明确语义。
 
@@ -74,19 +74,19 @@
 | `active=true`，`collectionId=null` | 新增或移动到默认收藏 |
 | `active=true`，传合集 UUID | 验证该合集属于当前用户，新增或移动收藏 |
 
-收藏建立或移动前检查文章公开状态。文章与合集归属写入在同一事务完成，组合外键再次约束所有权。更新已有收藏合集时保留收藏最初创建时间。合集创建和列表权限见[个人页与隐私](./profiles.md)。[收藏写接口](../../apps/api/interactions.ts)
+收藏建立或移动前检查文章公开状态。文章与合集归属写入在同一事务完成，组合外键再次约束所有权。更新已有收藏合集时保留收藏最初创建时间。合集创建和列表权限见[个人页与隐私](./profiles.md)。[收藏写接口](../../apps/api/features/community/interactions.ts)
 
 ## 关注作者和关注流
 
 关注以当前会话作为 `follower_id`，路由中的用户 ID 作为 `followee_id`。新增关注先锁定状态为 `ACTIVE` 的目标用户，再执行去重插入。取消关注只删除这一对关系。自关注返回 `400 SELF_FOLLOW`，目标不可用返回 `404`。
 
-前台在本人作者区隐藏关注入口。文章、沸点和个人页取消关注完成后，需要同时更新作者互动状态、关注列表、个人统计、沸点关注流和详情。共享刷新函数使 `interaction`、`following`、`profile`、`pulses`、`featured-pulses`、`pulse-detail` 查询失效，避免从文章关注后返回旧的沸点关注流。[缓存刷新](../../apps/web/follow-cache.ts) · [文章入口](../../apps/web/interactions.tsx) · [沸点入口](../../apps/web/pulses.tsx)
+前台在本人作者区隐藏关注入口。文章、沸点和个人页取消关注完成后，需要同时更新作者互动状态、关注列表、个人统计、沸点关注流和详情。共享刷新函数使 `interaction`、`following`、`profile`、`pulses`、`featured-pulses`、`pulse-detail` 查询失效，避免从文章关注后返回旧的沸点关注流。[缓存刷新](../../apps/web/features/engagement/follow-cache.ts) · [文章入口](../../apps/web/features/engagement/interactions.tsx) · [沸点入口](../../apps/web/features/pulses/pulses.tsx)
 
-文章和沸点关注流只读取当前用户关注作者的公开内容。首次审核公开内容时，通知模块根据当时已提交的关注关系生成站内通知。取消关注后历史通知继续保留，内容重新上架遵循各模块的通知去重规则。[文章列表](../../apps/api/articles.ts) · [沸点列表](../../apps/api/pulses.ts) · [通知生成](../../apps/api/notifications.ts)
+文章和沸点关注流只读取当前用户关注作者的公开内容。首次审核公开内容时，通知模块根据当时已提交的关注关系生成站内通知。取消关注后历史通知继续保留，内容重新上架遵循各模块的通知去重规则。[文章列表](../../apps/api/features/articles/articles.ts) · [沸点列表](../../apps/api/features/pulses/pulses.ts) · [通知生成](../../apps/api/features/community/notifications.ts)
 
 ## 每日签到
 
-服务端使用 `Asia/Shanghai` 计算当前自然日，再存为数据库 `date` 字段。每次签到采用 `createMany` 并跳过重复关系，同一用户并发签到最终只有一行。按钮状态从签到查询和写入响应确定，成功后显示「今日已签到」并禁用当前日的重复提交。查询或写入失败显示重试反馈。[日期计算与签到](../../apps/api/pulses.ts) · [签到组件](../../apps/web/pulses.tsx)
+服务端使用 `Asia/Shanghai` 计算当前自然日，再存为数据库 `date` 字段。每次签到采用 `createMany` 并跳过重复关系，同一用户并发签到最终只有一行。按钮状态从签到查询和写入响应确定，成功后显示「今日已签到」并禁用当前日的重复提交。查询或写入失败显示重试反馈。[日期计算与签到](../../apps/api/features/pulses/pulses.ts) · [签到组件](../../apps/web/features/pulses/pulses.tsx)
 
 ## 错误和状态一致性
 
@@ -99,7 +99,7 @@
 | 自关注 | `400 SELF_FOLLOW` | 显示错误，数据库无新增关系 |
 | 网络失败 | 客户端连接错误 | 可重试，界面恢复上次确认状态 |
 
-当前关系写入保证每个用户目标对唯一。相反的期望状态并发提交时，最终状态以服务端提交结果和后续读取为准。页面对进行中的操作做禁用，并在成功后失效相关查询。[客户端请求与错误解析](../../apps/web/api.ts) · [统一会话](../../apps/web/session.tsx)
+当前关系写入保证每个用户目标对唯一。相反的期望状态并发提交时，最终状态以服务端提交结果和后续读取为准。页面对进行中的操作做禁用，并在成功后失效相关查询。[客户端请求与错误解析](../../apps/shared/api/api.ts) · [统一会话](../../apps/shared/auth/session.tsx)
 
 ## 验收清单
 

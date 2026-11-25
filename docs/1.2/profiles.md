@@ -4,7 +4,7 @@
 
 ## 页面结构与路由
 
-个人页使用左侧身份和内容区、右侧统计区。身份区显示昵称、用户名和头像，头像加载失败时使用昵称首字。主内容以标签切换，当前视图和页码保存在 URL 中。窄屏将内容和侧栏纵向排列。[个人页组件](../../apps/web/profile.tsx) · [样式](../../apps/web/profile.css)
+个人页使用左侧身份和内容区、右侧统计区。身份区显示昵称、用户名和头像，头像加载失败时使用昵称首字。主内容以标签切换，当前视图和页码保存在 URL 中。窄屏将内容和侧栏纵向排列。[个人页组件](../../apps/web/features/profile/profile.tsx) · [样式](../../apps/web/features/profile/profile.css)
 
 | 路由 | 用途 |
 | --- | --- |
@@ -21,13 +21,13 @@
 | `/me/bookmarks?collection=:id&page=N` | 指定合集条目 |
 | `/me/following` | 兼容关注用户入口 |
 
-从个人页的收藏标签切换时，身份和统计区域保留，内容区展示合集。合集条目链接进入独立收藏页，所选合集由 `collection` 查询参数确定。浏览器前进和后退使用 URL 恢复标签、合集和页码。[路由配置](../../apps/web/main.tsx) · [个人页 URL 生成](../../apps/web/profile.tsx)
+从个人页的收藏标签切换时，身份和统计区域保留，内容区展示合集。合集条目链接进入独立收藏页，所选合集由 `collection` 查询参数确定。浏览器前进和后退使用 URL 恢复标签、合集和页码。[路由配置](../../apps/web/app/web-app.tsx) · [个人页 URL 生成](../../apps/web/features/profile/profile.tsx)
 
 ## 身份和访问权限
 
-会话加载期间显示加载反馈，失败提供会话重试。游客打开个人入口时显示登录链接，登录回跳仅保存当前应用内路径。已登录后，组件以用户 ID 为键重新挂载。会话更新会取消查询并清理会话之外的查询缓存，避免上一账号的列表进入下一账号页面。[会话提供器](../../apps/web/session.tsx) · [认证弹窗](../../apps/web/auth-page.tsx)
+会话加载期间显示加载反馈，失败提供会话重试。游客打开个人入口时显示登录链接，登录回跳仅保存当前应用内路径。已登录后，组件以用户 ID 为键重新挂载。会话更新会取消查询并清理会话之外的查询缓存，避免上一账号的列表进入下一账号页面。[会话提供器](../../apps/shared/auth/session.tsx) · [认证弹窗](../../apps/shared/auth/auth-page.tsx)
 
-个人接口从会话读取用户 ID。请求参数只选择视图、页码或当前用户拥有的合集。普通用户和管理员登录后的个人页都按各自身份查询，管理员角色继续通过后台接口执行管理操作。[个人接口](../../apps/api/interactions.ts)
+个人接口从会话读取用户 ID。请求参数只选择视图、页码或当前用户拥有的合集。普通用户和管理员登录后的个人页都按各自身份查询，管理员角色继续通过后台接口执行管理操作。[个人接口](../../apps/api/features/community/interactions.ts)
 
 ## 个人资料与统计口径
 
@@ -40,7 +40,7 @@
 | `following` | 本人关注且账号仍为 `ACTIVE` 的用户数量 |
 | `followers` | 关注本人且账号仍为 `ACTIVE` 的用户数量 |
 
-个人成就区显示文章获赞和文章阅读，关系区显示关注和关注者，加入日期来自账号创建时间。文章获赞和阅读统计遵循公开文章范围，沸点点赞与浏览由沸点条目展示。[统计查询](../../apps/api/interactions.ts) · [Prisma 模型](../../prisma/schema.prisma)
+个人成就区显示文章获赞和文章阅读，关系区显示关注和关注者，加入日期来自账号创建时间。文章获赞和阅读统计遵循公开文章范围，沸点点赞与浏览由沸点条目展示。[统计查询](../../apps/api/features/community/interactions.ts) · [Prisma 模型](../../prisma/schema.prisma)
 
 ## 视图查询与分页
 
@@ -57,7 +57,7 @@
 | `following` | 本人关注的有效用户，关系时间、被关注用户 ID 降序 |
 | `followers` | 关注本人的有效用户，关系时间、关注者 ID 降序 |
 
-页面使用前一结果作为切换期间的占位数据，同时显示加载状态，防止把上一标签的列表误标为本次完成结果。失败提供重试。每个视图有相应空态文案。分页只在前页或后页存在时出现。[个人 API](../../apps/api/interactions.ts) · [前台列表](../../apps/web/profile.tsx)
+页面使用前一结果作为切换期间的占位数据，同时显示加载状态，防止把上一标签的列表误标为本次完成结果。失败提供重试。每个视图有相应空态文案。分页只在前页或后页存在时出现。[个人 API](../../apps/api/features/community/interactions.ts) · [前台列表](../../apps/web/features/profile/profile.tsx)
 
 ## 动态聚合
 
@@ -70,7 +70,7 @@
 | `bookmark` | 收藏 `createdAt` | 收藏了文章，进入文章详情 |
 | `follow` | 关系 `createdAt` | 关注了用户，显示用户资料 |
 
-动态由当前存在的数据聚合。取消收藏或关注后，相应关系产生的动态随查询结果变化。当前动态流用于个人浏览，没有独立事件流水表和全量翻页接口。[动态聚合](../../apps/api/interactions.ts) · [动态渲染](../../apps/web/profile.tsx)
+动态由当前存在的数据聚合。取消收藏或关注后，相应关系产生的动态随查询结果变化。当前动态流用于个人浏览，没有独立事件流水表和全量翻页接口。[动态聚合](../../apps/api/features/community/interactions.ts) · [动态渲染](../../apps/web/features/profile/profile.tsx)
 
 ## 收藏合集的数据与流程
 
@@ -91,13 +91,13 @@
 
 默认收藏保留名称用于系统入口。用户创建名为「默认收藏」的合集返回 `400 RESERVED_COLLECTION_NAME`。同一用户重复创建同名合集采用 upsert 返回已有记录。不同用户可以使用相同名称。
 
-合集条目按收藏创建时间和文章 ID 降序读取，最多取 21 条并返回前 20 条。已下架文章从计数及条目中同时过滤。其他用户的合集 ID 返回 `404 COLLECTION_NOT_FOUND`。[合集接口](../../apps/api/interactions.ts) · [合集组件](../../apps/web/bookmark-collections.tsx)
+合集条目按收藏创建时间和文章 ID 降序读取，最多取 21 条并返回前 20 条。已下架文章从计数及条目中同时过滤。其他用户的合集 ID 返回 `404 COLLECTION_NOT_FOUND`。[合集接口](../../apps/api/features/community/interactions.ts) · [合集组件](../../apps/web/features/bookmarks/bookmark-collections.tsx)
 
 ### 前台操作
 
 合集列表可展开新建表单，成功后刷新列表并收起表单。在文章收藏弹窗中创建成功后自动选择新合集。保存和取消收藏完成后刷新个人页、合集计数及合集条目缓存。操作失败保留当前输入或选择。
 
-个人页关注用户条目可取消关注，成功后刷新个人列表、关注关系、作者互动状态和内容流。关注者列表展示关注者资料，当前取消关注入口只出现在本人关注列表。[个人关注操作](../../apps/web/profile.tsx) · [收藏操作](../../apps/web/interactions.tsx)
+个人页关注用户条目可取消关注，成功后刷新个人列表、关注关系、作者互动状态和内容流。关注者列表展示关注者资料，当前取消关注入口只出现在本人关注列表。[个人关注操作](../../apps/web/features/profile/profile.tsx) · [收藏操作](../../apps/web/features/engagement/interactions.tsx)
 
 ## 隐私与缓存边界
 
@@ -107,7 +107,7 @@
 - 个人页设置禁止存储缓存头。合集、动态、个人收藏和关注接口显式使用 `private, no-store`，账号切换时清理前端私有缓存。
 - 公开内容下架后从个人公开作品、收藏、点赞和动态内容查询中排除。已经生成的通知有独立保留策略，详见通知模块。
 
-权限和缓存行为需通过两个账号、游客及响应头共同验证。界面隐藏入口之外，服务端仍独立执行会话与合集所有权校验。[会话管理](../../apps/web/session.tsx) · [服务端安全逻辑](../../apps/api/security.ts) · [个人查询](../../apps/api/interactions.ts)
+权限和缓存行为需通过两个账号、游客及响应头共同验证。界面隐藏入口之外，服务端仍独立执行会话与合集所有权校验。[会话管理](../../apps/shared/auth/session.tsx) · [服务端安全逻辑](../../apps/api/shared/security.ts) · [个人查询](../../apps/api/features/community/interactions.ts)
 
 ## 错误处理
 

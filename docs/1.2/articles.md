@@ -18,9 +18,9 @@
 | `/admin/articles` | 管理员筛选文章、打开处理弹窗、审核、下架、恢复和查看评论。 |
 | `/admin/articles/:id` | 管理员读取文章及最近的审核记录。 |
 
-编辑器在宽屏支持编辑和预览并排，也可切到单独编辑或预览。成功保存新草稿后进入包含 ID 的编辑地址。请求失败保留当前输入，版本冲突提示刷新处理。公开 Markdown 与编辑预览复用渲染器，正文标题生成唯一锚点，中文和重复标题使用同一编号规则。原始 HTML 跳过，链接仅保留允许的协议或站内路径。[文章前台](../../apps/web/articles.tsx) [Markdown 渲染器](../../apps/web/markdown.tsx)
+编辑器在宽屏支持编辑和预览并排，也可切到单独编辑或预览。成功保存新草稿后进入包含 ID 的编辑地址。请求失败保留当前输入，版本冲突提示刷新处理。公开 Markdown 与编辑预览复用渲染器，正文标题生成唯一锚点，中文和重复标题使用同一编号规则。原始 HTML 跳过，链接仅保留允许的协议或站内路径。[文章前台](../../apps/web/features/articles/articles.tsx) [Markdown 渲染器](../../apps/shared/ui/markdown.tsx)
 
-游客打开公开文章可阅读正文与评论。点赞、收藏、关注和发表评论需要登录，登录入口使用弹窗并保留站内回跳目标。作者卡片对本人隐藏关注入口，已有关注、收藏和点赞状态由当前会话接口返回。[互动组件](../../apps/web/interactions.tsx)
+游客打开公开文章可阅读正文与评论。点赞、收藏、关注和发表评论需要登录，登录入口使用弹窗并保留站内回跳目标。作者卡片对本人隐藏关注入口，已有关注、收藏和点赞状态由当前会话接口返回。[互动组件](../../apps/web/features/engagement/interactions.tsx)
 
 ## 文章数据与关联
 
@@ -38,7 +38,7 @@
 
 数据库检查 `version > 0`、阅读量非负，以及公开文章必须有发布时间且审核状态为 `APPROVED`。文章列表索引覆盖公开状态与发布时间、作者与更新时间、审核状态与更新时间。字段类型和外键以 Prisma 模型与迁移共同为准，数据库 CHECK 及触发器由 SQL 迁移维护。[Prisma 模型](../../prisma/schema.prisma) [文章初始迁移](../../prisma/migrations/202611250002_articles/migration.sql) [阅读迁移](../../prisma/migrations/202611250008_article_views/migration.sql)
 
-标题上限 160，摘要上限 500，Markdown 正文上限 60000。草稿允许保存未完成内容，提交审核要求去除首尾空白后的标题和正文均非空。API 拒绝额外字段，调用者不能通过请求体指定作者。[文章 API](../../apps/api/articles.ts)
+标题上限 160，摘要上限 500，Markdown 正文上限 60000。草稿允许保存未完成内容，提交审核要求去除首尾空白后的标题和正文均非空。API 拒绝额外字段，调用者不能通过请求体指定作者。[文章 API](../../apps/api/features/articles/articles.ts)
 
 ## 生命周期与并发
 
@@ -53,9 +53,9 @@
 | 恢复展示 | `UNLISTED + APPROVED` | `PUBLISHED + APPROVED` | 管理员，使用 `RELIST` 动作。 |
 | 转回草稿 | `UNLISTED + APPROVED` | `DRAFT + NOT_SUBMITTED` | 本人。 |
 
-状态变更在事务内核对版本与原状态，条件更新成功后写审核日志。重复使用旧版本返回 409，失败事务不留下单独的状态更新或日志。首次审核公开时，在同一事务内给当时已关注作者的用户生成站内通知。恢复展示不再次发送发布通知。[审核 API](../../apps/api/moderation.ts) [通知生成](../../apps/api/notifications.ts)
+状态变更在事务内核对版本与原状态，条件更新成功后写审核日志。重复使用旧版本返回 409，失败事务不留下单独的状态更新或日志。首次审核公开时，在同一事务内给当时已关注作者的用户生成站内通知。恢复展示不再次发送发布通知。[审核 API](../../apps/api/features/articles/moderation.ts) [通知生成](../../apps/api/features/community/notifications.ts)
 
-评论、文章点赞和收藏新增时先锁定公开文章，再写关系，避免检查完成后内容下架而仍新增公开互动。取消已有文章点赞和收藏按本人关系删除，能够清理已下架内容的已有关系。[互动 API](../../apps/api/interactions.ts)
+评论、文章点赞和收藏新增时先锁定公开文章，再写关系，避免检查完成后内容下架而仍新增公开互动。取消已有文章点赞和收藏按本人关系删除，能够清理已下架内容的已有关系。[互动 API](../../apps/api/features/community/interactions.ts)
 
 ## 接口契约
 
@@ -83,17 +83,17 @@
 | `POST /api/admin/articles/:id/unlist` | `version`、`reason` | 管理员下架。 |
 | `POST /api/admin/articles/:id/relist` | `version` | 管理员恢复展示。 |
 
-后台 `from / to` 是北京时间日历日期，`to` 包含当天。服务端转换为起始日零点至结束日次日零点的左闭右开区间，并拒绝非法日期与倒置范围。[日期过滤](../../apps/api/admin-date-range.ts)
+后台 `from / to` 是北京时间日历日期，`to` 包含当天。服务端转换为起始日零点至结束日次日零点的左闭右开区间，并拒绝非法日期与倒置范围。[日期过滤](../../apps/api/shared/admin-date-range.ts)
 
 ## 排序、搜索与阅读计数
 
-首页前台默认请求 `recommended`，API 未传 `tab` 时默认 `latest`。最新按发布时间和 ID 降序，推荐优先阅读量，再按发布时间和 ID 降序。关注流在公开条件上过滤已关注作者。关键词在标题和正文中做大小写不敏感子串匹配。游标包含排序值、标签、关键词和排序类型，不能跨筛选复用。[文章列表实现](../../apps/api/articles.ts)
+首页前台默认请求 `recommended`，API 未传 `tab` 时默认 `latest`。最新按发布时间和 ID 降序，推荐优先阅读量，再按发布时间和 ID 降序。关注流在公开条件上过滤已关注作者。关键词在标题和正文中做大小写不敏感子串匹配。游标包含排序值、标签、关键词和排序类型，不能跨筛选复用。[文章列表实现](../../apps/api/features/articles/articles.ts)
 
-详情读取只建立浏览会话标识。前台加载详情后发阅读写请求，服务端按文章和会话摘要保存 30 分钟窗口。窗口更新和累计阅读量递增在同一事务内执行，并发重复请求只计一次。数据库保存摘要，浏览器保存随机标识 Cookie。[阅读 API](../../apps/api/article-views.ts) [前台详情](../../apps/web/articles.tsx)
+详情读取只建立浏览会话标识。前台加载详情后发阅读写请求，服务端按文章和会话摘要保存 30 分钟窗口。窗口更新和累计阅读量递增在同一事务内执行，并发重复请求只计一次。数据库保存摘要，浏览器保存随机标识 Cookie。[阅读 API](../../apps/api/features/articles/article-views.ts) [前台详情](../../apps/web/features/articles/articles.tsx)
 
 ## 评论与互动
 
-文章、沸点和章节使用同一个 `CommentSection` 输入及列表组件。文章启用两级回复和评论点赞，一级评论和二级回复都允许本人参与。对二级回复点击回复时，请求仍关联该线程的一级评论，保持两级结构。[共享评论组件](../../apps/web/comments.tsx)
+文章、沸点和章节使用同一个 `CommentSection` 输入及列表组件。文章启用两级回复和评论点赞，一级评论和二级回复都允许本人参与。对二级回复点击回复时，请求仍关联该线程的一级评论，保持两级结构。[共享评论组件](../../apps/shared/ui/comments.tsx)
 
 | 评论接口 | 规则 |
 | --- | --- |
@@ -104,7 +104,7 @@
 | `GET /api/admin/comments/sources` | 管理员搜索有评论的文章来源，返回候选 ID 和标题。 |
 | `PATCH /api/admin/comments/:id/status` | `{expectedStatus,status,reason?}`，管理员隐藏或恢复。隐藏需原因，旧状态返回 409。 |
 
-公开文章评论计数包含可见的一级评论及父级可见的二级回复，后台文章列表评论数则包含可见和隐藏的全部评论。当前文章的「最热」在客户端对已取回的最近 100 个线程排序，依次比较一级评论点赞数、返回回复数和时间。「最新」按一级评论时间降序。回复默认折叠为两条，可展开已返回的回复。父评论隐藏后，整个线程从公开列表及公开计数移除，恢复父评论后仍尊重每条回复自身的可见状态。[评论读取与写入](../../apps/api/interactions.ts) [共享排序](../../apps/web/comments.tsx)
+公开文章评论计数包含可见的一级评论及父级可见的二级回复，后台文章列表评论数则包含可见和隐藏的全部评论。当前文章的「最热」在客户端对已取回的最近 100 个线程排序，依次比较一级评论点赞数、返回回复数和时间。「最新」按一级评论时间降序。回复默认折叠为两条，可展开已返回的回复。父评论隐藏后，整个线程从公开列表及公开计数移除，恢复父评论后仍尊重每条回复自身的可见状态。[评论读取与写入](../../apps/api/features/community/interactions.ts) [共享排序](../../apps/shared/ui/comments.tsx)
 
 迁移 `202611250020_comment_thread_integrity` 进一步在数据库层限制文章和沸点回复。它先检查已有结构，再安装触发器，拒绝跨内容父级、自引用和三级回复。评论建立后固定 ID、所属内容和父级，允许正文及审核状态继续更新。迁移遇到异常旧结构会整体失败，需查明具体数据后处理。[线程约束迁移](../../prisma/migrations/202611250020_comment_thread_integrity/migration.sql)
 
@@ -119,7 +119,7 @@
 | 409 | 提示版本或状态已变化，允许读取服务器最新内容后处理。 |
 | 请求失败 | 保留编辑器或评论草稿，操作位置显示错误和重试入口。 |
 
-文章评论和互动状态响应携带 `private, no-store`，个性化缓存键包含当前用户，退出或换账号时清理私有缓存。[会话管理](../../apps/web/session.tsx) [互动 API](../../apps/api/interactions.ts)
+文章评论和互动状态响应携带 `private, no-store`，个性化缓存键包含当前用户，退出或换账号时清理私有缓存。[会话管理](../../apps/shared/auth/session.tsx) [互动 API](../../apps/api/features/community/interactions.ts)
 
 ## 验收设计
 

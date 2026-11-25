@@ -1,0 +1,35 @@
+.download-page { width:min(1120px, calc(100% - 32px)); margin:24px auto 56px; }
+.download-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+.download-heading h1 { font-size:clamp(22px,3vw,30px); }
+.download-heading nav, .download-actions { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:center; }
+.download-hero {
+  display:grid;
+  grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);
+  gap:clamp(24px, 6vw, 76px);
+  padding:clamp(24px,6vw,78px);
+  align-items:center;
+  min-height:440px;
+  border:1px solid var(--line);
+  border-radius:24px;
+  background:radial-gradient(ellipse at 85% 10%, #e3d8ff, transparent 60%), var(--surface);
+}
+.download-tabs { display:inline-flex; gap:4px; max-width:100%; padding:4px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.download-tabs button { padding:8px 12px; border:0; border-radius:8px; background:transparent; color:var(--muted); }
+.download-tabs button[aria-pressed="true"] { background:var(--selected); color:var(--brand); font-weight:700; }
+.download-hero h2 { margin:24px 0 12px; font-size:clamp(28px, 5vw, 54px); line-height:1.15; }
+.download-hero p, .download-info p { color:var(--muted); line-height:1.7; }
+.download-actions { margin-top:22px; }
+.download-actions .primary { display:inline-flex; align-items:center; }
+.download-availability { margin-top:12px; font-size:13px; }
+.download-preview { padding:18px; border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:0 15px 40px #32285b17; }
+.download-preview-title { display:flex; align-items:center; gap:10px; padding:0 0 12px; }
+.download-preview a { display:flex; justify-content:space-between; gap:8px; padding:12px 4px; border-top:1px solid var(--line); }
+.download-preview small { display:block; margin-top:4px; color:var(--muted); }
+.download-info { margin-top:26px; padding:20px; border:1px solid var(--line); border-radius:14px; background:var(--surface); }
+.download-info ul { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:0; padding:0; list-style:none; }
+.download-info details { padding:12px 0; border-bottom:1px solid var(--line); }
+.download-info summary { cursor:pointer; font-weight:650; }
+.download-info details p { margin-top:8px; }
+@media(max-width:720px) {
+  .download-hero, .download-info ul { grid-template-columns:minmax(0,1fr); }
+}

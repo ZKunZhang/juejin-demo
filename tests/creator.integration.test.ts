@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
 import { expect,test } from 'vitest';
-import { buildApp } from '../apps/api/app';
-import { connectDatabase } from '../apps/api/db';
-import { digest,sessionName } from '../apps/api/security';
+import { buildApp } from '../apps/api/app/app';
+import { connectDatabase } from '../apps/api/shared/db';
+import { digest,sessionName } from '../apps/api/shared/security';
 
 const url=process.env.TEST_DATABASE_URL;
 if(!url||!new URL(url).pathname.endsWith('_test'))throw new Error('A dedicated TEST_DATABASE_URL ending in _test is required');

@@ -2,7 +2,7 @@
 
 ## 范围
 
-沿用 Node.js、Fastify、Prisma 和 PostgreSQL。复用 `users.id` 的 UUID 和现有会话权限。此版本交付导航和设计，以下新表、接口和迁移均为待实现。
+沿用 Node.js、Fastify、Prisma 和 PostgreSQL。复用 `users.id` 的 UUID 和现有会话权限。扩展模块使用独立迁移追加业务表，保留既有账号和社区数据。数据库备注通过迁移写入。
 
 ## AI 用量与模型价格
 
@@ -31,10 +31,10 @@
 | `project_categories`、`project_platforms` | `id`、`slug`、名称、展示顺序、启用状态 | 两张目录表各自 slug 唯一 |
 | `project_category_links`、`project_platform_links` | `project_id` 与对应目录 ID | 组合主键防重。建立目录 ID 开头的反向索引 |
 | `project_likes` | `project_id`、`user_id`、`created_at` | 作品和用户组合主键。点赞数从关系表聚合 |
-| `project_view_windows` | `project_id`、`viewer_key`、`window_start` | 组合主键去重。访问窗口沿用文章的统计约定 |
+| `project_view_windows` | `project_id`、`viewer_key`、`window_start` | 组合主键去重。距上次记录满 30 分钟才新增一条；按窗口行计数 |
 | `project_reviews` | `id`、`project_id`、`actor_id`、`version`、操作、前后状态、原因、`created_at` | 作品与版本联合唯一。状态更新与审核日志同事务写入 |
 
-作者保存草稿并提交审核。管理员通过后公开，也可驳回或下架。状态取值为 `DRAFT`、`PENDING`、`PUBLISHED`、`REJECTED`、`UNLISTED`。作者和管理员操作均校验版本；公开查询、详情、访问量和点赞均检查作品的公开状态。只接受验证过的 HTTP(S) 外链和 HTTPS 封面。
+作者仅可编辑或提交草稿及已驳回作品，保存内容及更新分类和平台在同一事务。作者保存草稿并提交审核。管理员通过后公开，也可驳回或下架。状态取值为 `DRAFT`、`PENDING`、`PUBLISHED`、`REJECTED`、`UNLISTED`。作者和管理员操作均校验版本；公开查询、详情、访问量和点赞均检查作品的公开状态。只接受验证过的 HTTP(S) 外链和 HTTPS 封面。
 
 广场组合分类、平台、发布时间和名称或简介关键词查询。首屏热门作品与主列表使用同一套公开规则。按点赞、浏览或最新排序时附加发布时间和作品 ID 以稳定分页。先用索引与关系聚合，性能有实测需求再添加可重建的计数缓存。后台可按状态和最近提交时间筛选审核。每次提交更新该时间，草稿编辑不改变该时间。
 
@@ -69,11 +69,17 @@ COMMENT ON COLUMN projects.status IS '作品流程状态：草稿、待审核、
 COMMENT ON COLUMN projects.submitted_at IS '最近一次提交审核的时间，保存草稿时保持原值。';
 ```
 
-## 专家标注与实施顺序
+## 专家标注
 
-专家标注目前只有导航和入口。任务来源、专家资格、分配规则和交付结果的可见范围待明确，首轮数据库迁移不包含标注表。
+| 表 | 核心字段 | 约束与索引 |
+| --- | --- | --- |
+| `expert_tasks` | `id`、`title`、`summary`、`instructions`、`status`、`is_demo`、`created_at`、`updated_at` | 公开任务过滤 `OPEN`，用状态、创建时间和 ID 排序。演示标签读取 `is_demo` |
+| `expert_annotations` | `task_id`、`user_id`、`status`、`response`、`claimed_at`、`submitted_at` | 任务与用户组合主键。提交要求非空结果和提交时间。按用户、领取时间查询本人记录 |
 
-1. 先实现作品表、作者提交、后台审核和公开广场，再补点赞、浏览和排序。
-2. 实现供应商、模型及价格目录，接入有出处的价格记录。
-3. 确认用量来源和导入认证，实现幂等事件入库、个人统计和默认关闭的公开榜。
-4. 根据确认后的专家标注流程设计任务、分配和结果实体。
+当前实现允许登录用户领取演示任务，每位用户每任务保留一份提交。重复领取返回原记录，提交成功后保持只读。领取和提交在同一任务行锁下检查开放状态，提交结果只有本人可从接口读取。两个表及每列的中文备注明确写在 PostgreSQL 迁移中。任务分发、专家资格管理及结果复审未接入。
+
+## 演示数据
+
+执行 `ENABLE_DEMO_SEED=true ENABLE_DEMO_V13=true npm run db:seed`，在本地 `_dev` 或 `_test` 库为现有演示账号填充作品、AI 用量及标注任务。种子使用稳定的业务键和 ID，重复执行不产生重复条目，也不覆盖已有排行偏好。
+
+样例作品的外链是占位地址，供应商、模型价格和 Token 均为模拟记录。用户可在 AI 用量页手动导入结构化用量记录，排行榜需主动开启公开。

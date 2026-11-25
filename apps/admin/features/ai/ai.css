@@ -1,0 +1,16 @@
+.admin-ai-forms { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 24px; margin-top: 22px; }
+.admin-ai-forms > section { min-width: 0; padding: 16px; border: 1px solid var(--admin-border); border-radius: 10px; }
+.admin-ai-forms form { display: grid; gap: 6px; margin-top: 12px; }
+.admin-ai-forms label { font-size: 14px; margin-top: 7px; }
+.admin-ai-forms .ant-select, .admin-ai-forms .ant-picker { width: 100%; min-width: 0; }
+.admin-ai-forms .ant-btn { justify-self: end; margin-top: 10px; }
+.admin-ai-price-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.admin-ai-price-pair label { display: block; margin-bottom: 6px; }
+.admin-ai-directory { margin-top: 20px; }
+.admin-ai-directory summary { cursor: pointer; color: var(--brand); }
+.admin-ai-directory h3 { font-size: 14px; margin-bottom: 4px; }
+.admin-ai-directory ul { margin-top: 4px; padding-left: 20px; }
+.admin-ai-current { border-top: 1px solid var(--admin-border); padding-top: 22px; margin-top: 24px; }
+.admin-ai-current > .meta { margin-top: 12px; }
+.admin-ai-feedback { margin-top: 14px; }
+@media(max-width: 900px) { .admin-ai-forms { grid-template-columns: minmax(0, 1fr); } }

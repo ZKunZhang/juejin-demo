@@ -1,10 +1,10 @@
 # 账号与会话设计 1.2
 
-本模块为前台、创作者中心和管理后台提供同一套账号身份。版本 1.2 按当前 React、Fastify、Prisma 和 PostgreSQL 实现整理，作为页面交互、接口与会话存储的共同约定。角色与账号状态每次从有效会话关联的用户记录读取。[服务端入口](../../apps/api/app.ts) · [权限实现](../../apps/api/security.ts)
+本模块为前台、创作者中心和管理后台提供同一套账号身份。版本 1.2 按当前 React、Fastify、Prisma 和 PostgreSQL 实现整理，作为页面交互、接口与会话存储的共同约定。角色与账号状态每次从有效会话关联的用户记录读取。[服务端入口](../../apps/api/app/app.ts) · [权限实现](../../apps/api/shared/security.ts)
 
 ## 页面与交互
 
-前台 `/login` 和 `/register` 由路由打开认证弹窗。用户从文章、沸点、课程或个人页进入认证时，路由保存背景页面与站内 `next`，成功后回到原操作位置。直接访问认证地址时也会显示背景内容和弹窗。弹窗首次打开聚焦用户名，提供关闭按钮、Esc 关闭、密码显示切换与登录注册切换。提交期间禁用重复提交、关闭和切换，防止在进行中的认证请求上切换表单。[路由实现](../../apps/web/main.tsx) · [认证表单](../../apps/web/auth-page.tsx)
+前台 `/login` 和 `/register` 由路由打开认证弹窗。用户从文章、沸点、课程或个人页进入认证时，路由保存背景页面与站内 `next`，成功后回到原操作位置。直接访问认证地址时也会显示背景内容和弹窗。弹窗首次打开聚焦用户名，提供关闭按钮、Esc 关闭、密码显示切换与登录注册切换。提交期间禁用重复提交、关闭和切换，防止在进行中的认证请求上切换表单。[路由实现](../../apps/web/main.tsx) · [认证表单](../../apps/shared/auth/auth-page.tsx)
 
 后台以 `/admin/login` 为入口，使用相同表单和认证接口，成功后由后台检查 `ADMIN` 角色。普通用户在后台看到无权限提示并可退出换账号。前台与后台共享 Cookie，登录任一入口会影响同一浏览器上下文中的账号。[后台入口](../../apps/admin/main.tsx)
 
@@ -16,7 +16,7 @@
 | `password` | 登录、注册 | 8–128 字符。密码原值用于哈希校验，表单提供显隐切换。 |
 | `displayName` | 注册 | 必填，最多 80 字符，服务端去除首尾空白。 |
 
-`next` 仅接受以单个 `/` 开始的站内路径，并拒绝反斜线和空白。前台额外避免把认证路由作为成功回跳目标。用户名冲突定位到用户名字段，网络失败和认证失败显示在表单中。[认证表单](../../apps/web/auth-page.tsx)
+`next` 仅接受以单个 `/` 开始的站内路径，并拒绝反斜线和空白。前台额外避免把认证路由作为成功回跳目标。用户名冲突定位到用户名字段，网络失败和认证失败显示在表单中。[认证表单](../../apps/shared/auth/auth-page.tsx)
 
 ## 数据设计
 
@@ -25,9 +25,9 @@
 | `users` | UUID、`username`、`password_hash`、`display_name`、`role`、`status`、创建及更新时间 | 用户名唯一。角色为 `USER / ADMIN`，注册使用数据库默认 `USER`。状态为 `ACTIVE / DISABLED`。 |
 | `sessions` | UUID、`user_id`、`token_hash`、`expires_at`、`revoked_at`、`created_at` | 用户外键，令牌摘要唯一。按用户和过期时间建立索引。 |
 
-密码保存 Argon2id 编码哈希。会话令牌由 32 个随机字节生成，浏览器持有 64 位十六进制原值，数据库保存 SHA-256 摘要。会话有效期为 7 天。Cookie 名为 `mazhan_session`，使用 `HttpOnly`、`SameSite=Lax`、`Path=/`，生产环境启用 `Secure`。[Prisma 模型](../../prisma/schema.prisma) · [密码与令牌实现](../../apps/api/security.ts)
+密码保存 Argon2id 编码哈希。会话令牌由 32 个随机字节生成，浏览器持有 64 位十六进制原值，数据库保存 SHA-256 摘要。会话有效期为 7 天。Cookie 名为 `mazhan_session`，使用 `HttpOnly`、`SameSite=Lax`、`Path=/`，生产环境启用 `Secure`。[Prisma 模型](../../prisma/schema.prisma) · [密码与令牌实现](../../apps/api/shared/security.ts)
 
-登录和注册会在事务内撤销请求 Cookie 对应的旧会话，再建立新会话。退出只撤销当前会话。账号被禁用、会话过期或撤销后，原 Cookie 无法通过 `findActor` 检查。登录查询使用当前用户角色，后台权限随数据库角色变化生效。[会话实现](../../apps/api/app.ts)
+登录和注册会在事务内撤销请求 Cookie 对应的旧会话，再建立新会话。退出只撤销当前会话。账号被禁用、会话过期或撤销后，原 Cookie 无法通过 `findActor` 检查。登录查询使用当前用户角色，后台权限随数据库角色变化生效。[会话实现](../../apps/api/app/app.ts)
 
 ## 接口与权限
 
@@ -39,13 +39,13 @@
 | `GET /api/auth/me` | 会话 Cookie | 用户 ID、用户名、昵称、角色 | 有效登录用户，响应 `no-store`。 |
 | `POST /api/auth/logout` | 会话 Cookie | 204 并清除 Cookie | 有效登录用户、来源和 CSRF 检查。 |
 
-登录和注册各自配置每分钟最多 12 次请求。所有业务写接口复用来源与 CSRF 校验，随后按路由检查登录或管理员权限。前端 API 客户端在写入前获取 CSRF 令牌，JSON 请求携带 `X-CSRF-Token`。服务器仅接受配置中的 `APP_ORIGINS`，并拒绝 `Sec-Fetch-Site: cross-site`。[API 客户端](../../apps/web/api.ts) · [服务端校验](../../apps/api/app.ts)
+登录和注册各自配置每分钟最多 12 次请求。所有业务写接口复用来源与 CSRF 校验，随后按路由检查登录或管理员权限。前端 API 客户端在写入前获取 CSRF 令牌，JSON 请求携带 `X-CSRF-Token`。服务器仅接受配置中的 `APP_ORIGINS`，并拒绝 `Sec-Fetch-Site: cross-site`。[API 客户端](../../apps/shared/api/api.ts) · [服务端校验](../../apps/api/app/app.ts)
 
-注册 JSON 禁止额外字段，客户端无法通过提交 `role` 或账号状态获取管理权限。响应序列化只输出安全用户字段。日志遮蔽 Cookie、授权头、CSRF 令牌和响应 Cookie。[服务端入口](../../apps/api/app.ts)
+注册 JSON 禁止额外字段，客户端无法通过提交 `role` 或账号状态获取管理权限。响应序列化只输出安全用户字段。日志遮蔽 Cookie、授权头、CSRF 令牌和响应 Cookie。[服务端入口](../../apps/api/app/app.ts)
 
 ## 状态与错误
 
-前端会话状态为加载中、游客、已登录或加载失败。会话失败提供重试。登录或退出后取消正在执行的查询并清理其余业务缓存，再写入新的会话状态，避免账号切换后显示上个用户的数据。[会话上下文](../../apps/web/session.tsx)
+前端会话状态为加载中、游客、已登录或加载失败。会话失败提供重试。登录或退出后取消正在执行的查询并清理其余业务缓存，再写入新的会话状态，避免账号切换后显示上个用户的数据。[会话上下文](../../apps/shared/auth/session.tsx)
 
 | 状态码 | 情况 | 页面处理 |
 | --- | --- | --- |

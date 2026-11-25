@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 用户前台 | `index.html`、`apps/web/main.tsx` | 文章、沸点、课程、个人和创作者页面。React Router 处理站内链接，TanStack Query 管理接口数据。 |
 | 管理后台 | `admin/index.html`、`apps/admin/main.tsx` | 在 `/admin/` 下独立运行，检查会话及管理员角色后进入审核、评论、精选和活动管理。 |
-| API | `apps/api/start.ts`、`apps/api/app.ts` | Fastify 注册接口、会话、角色、来源和 CSRF 校验，统一处理错误。读取场景按目标状态约束公开范围。 |
+| API | `apps/api/start.ts`、`apps/api/app/app.ts` | Fastify 注册接口、会话、角色、来源和 CSRF 校验，统一处理错误。读取场景按目标状态约束公开范围。 |
 | 数据 | `prisma/schema.prisma`、`prisma/migrations/` | Prisma Client 连接 PostgreSQL，版本化迁移包含外键、索引、数据库 CHECK 和触发器。 |
 
 同源 Vite 转发把前后台的 `/api` 请求交给 API 服务。默认 API 监听 `127.0.0.1:3000`，转发目标可由 `API_PROXY_TARGET` 指定。开发 API 只接受 `APP_ORIGINS` 中列出的写请求来源。后台 URL 刷新由 Vite 的管理端 HTML 回退处理。

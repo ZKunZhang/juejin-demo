@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from 'vitest';
-import { connectDatabase } from '../apps/api/db';
+import { connectDatabase } from '../apps/api/shared/db';
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url || !new URL(url).pathname.endsWith('_test')) {

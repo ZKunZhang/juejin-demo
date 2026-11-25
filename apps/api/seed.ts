@@ -1,6 +1,7 @@
-import { seedCourses } from './demo-courses';
-import { connectDatabase } from './db';
-import { hashPassword } from './security';
+import { seedExpansion } from './features/expansion/demo-data';
+import { seedCourses } from './features/courses/demo-courses';
+import { connectDatabase } from './shared/db';
+import { hashPassword } from './shared/security';
 
 const accounts = [
   { username: 'admin_demo', displayName: '演示管理员', role: 'ADMIN', variable: 'DEMO_ADMIN_PASSWORD' },
@@ -86,6 +87,7 @@ try {
     });
   }
   if (process.env.ENABLE_DEMO_COURSES === 'true') await seedCourses(db);
+  if (process.env.ENABLE_DEMO_V13 === 'true') await seedExpansion(db);
   console.log('演示账号已初始化：', accounts.map(account => account.username).join('、'));
 } finally {
   await db.$disconnect();

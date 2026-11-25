@@ -1,5 +1,5 @@
-import { buildApp } from './app';
-import { connectDatabase } from './db';
+import { buildApp } from './app/app';
+import { connectDatabase } from './shared/db';
 
 const db = connectDatabase();
 const secure = process.env.NODE_ENV === 'production';

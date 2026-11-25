@@ -6,7 +6,7 @@
 
 ## 用户流程与页面
 
-用户在课程列表选择分类和难度，打开小册介绍，再通过「开始阅读」或介绍页目录进入章节。章节页采用左侧章节目录、右侧正文和正文下方评论，正文内标题由共用 Markdown 目录组件呈现。当前章节在左侧目录标记为选中，直接访问章节地址和刷新均使用相同的读取路径。[课程前台](../../apps/web/courses.tsx)
+用户在课程列表选择分类和难度，打开小册介绍，再通过「开始阅读」或介绍页目录进入章节。章节页采用左侧章节目录、右侧正文和正文下方评论，正文内标题由共用 Markdown 目录组件呈现。当前章节在左侧目录标记为选中，直接访问章节地址和刷新均使用相同的读取路径。[课程前台](../../apps/web/features/courses/courses.tsx)
 
 | 路由 | 当前页面行为 |
 | --- | --- |
@@ -16,7 +16,7 @@
 | `/courses/:id?tab=directory` | 在课程介绍页显示已发布章节目录。 |
 | `/courses/:id/lessons/:lessonId` | 左侧章节目录，右侧当前正文，正文后显示当前章节评论。 |
 
-本轮补齐 `/courses/` 自动进入首个公开章节的路径，`/courses` 继续显示小册列表，`/courses/:id` 继续显示课程介绍。课程介绍和章节页去掉重复的返回按钮，列表、目录、全站导航和浏览器历史承担导航。[路由表](../../apps/web/main.tsx) [课程入口选择](../../apps/web/course-reading-entry.tsx)
+本轮补齐 `/courses/` 自动进入首个公开章节的路径，`/courses` 继续显示小册列表，`/courses/:id` 继续显示课程介绍。课程介绍和章节页去掉重复的返回按钮，列表、目录、全站导航和浏览器历史承担导航。[路由表](../../apps/web/app/web-app.tsx) [课程入口选择](../../apps/web/features/courses/course-reading-entry.tsx)
 
 ## 布局与状态
 
@@ -30,7 +30,7 @@
 | 章节评论 | 共用 `CommentSection`，含作者、时间、正文、输入计数、加载、空态、失败和重试。 |
 | 窄屏 | 目录和正文纵向堆叠，正文内目录可折叠，代码块在自身容器内横向滚动。 |
 
-课程或章节不可公开时，页面显示「小册或章节不可访问」和课程列表入口。普通网络错误显示重试，避免将网络失败显示成空列表。[课程页面](../../apps/web/courses.tsx) [样式](../../apps/web/courses.css) [Markdown](../../apps/web/markdown.tsx)
+课程或章节不可公开时，页面显示「小册或章节不可访问」和课程列表入口。普通网络错误显示重试，避免将网络失败显示成空列表。[课程页面](../../apps/web/features/courses/courses.tsx) [样式](../../apps/web/features/courses/courses.css) [Markdown](../../apps/shared/ui/markdown.tsx)
 
 ## 数据模型与数据库约束
 
@@ -43,7 +43,7 @@
 
 课程标题上限 160，摘要上限 500。数据库按 `status, category_id, level, published_at, id` 建课程索引，按 `course_id, position` 建章节唯一索引，评论按 `lesson_id, created_at, id` 建读取索引。数据主键使用 UUID，时间点使用 `timestamptz(3)`。[Prisma 模型](../../prisma/schema.prisma) [课程迁移](../../prisma/migrations/202611250011_courses/migration.sql) [评论迁移](../../prisma/migrations/202611250014_course_lesson_comments/migration.sql)
 
-课程和章节的发布状态是独立字段。章节公开读取在查询中同时要求 `course.status=PUBLISHED`、`lesson.status=PUBLISHED` 和正确的 `course_id`。章节评论表保存 `lesson_id`，课程归属通过章节关系解析，减少重复归属字段。[课程 API](../../apps/api/courses.ts)
+课程和章节的发布状态是独立字段。章节公开读取在查询中同时要求 `course.status=PUBLISHED`、`lesson.status=PUBLISHED` 和正确的 `course_id`。章节评论表保存 `lesson_id`，课程归属通过章节关系解析，减少重复归属字段。[课程 API](../../apps/api/features/courses/courses.ts)
 
 ## 接口契约
 
@@ -56,9 +56,9 @@
 | `GET /api/courses/:id/lessons/:lessonId/comments` | 课程及章节 UUID | 评论数组，含 ID、正文、时间和作者 ID、用户名、昵称。 |
 | `POST /api/courses/:id/lessons/:lessonId/comments` | `{body}` | 新评论，HTTP 201，作者从会话取得。 |
 
-课程卡片字段包含 ID、标题、摘要、难度、发布时间、分类、作者和 `_count.lessons`。章节数量只统计已发布章节。介绍页先推荐同分类公开课程，按发布时间和 ID 排序，数量不足时从其他分类补足，合计最多三门并排除自身。[读取选择](../../apps/api/courses.ts)
+课程卡片字段包含 ID、标题、摘要、难度、发布时间、分类、作者和 `_count.lessons`。章节数量只统计已发布章节。介绍页先推荐同分类公开课程，按发布时间和 ID 排序，数量不足时从其他分类补足，合计最多三门并排除自身。[读取选择](../../apps/api/features/courses/courses.ts)
 
-课程和章节公开读取允许游客访问。评论发表要求有效登录会话、正确来源和 CSRF Token，正文长度 1 至 2000，必须有非空白字符，写入前去除首尾空白。额外请求字段被拒绝，调用方不能冒用 `authorId`。UUID、难度或请求体不合法返回 400。[API 校验](../../apps/api/courses.ts) [请求保护](../../apps/api/app.ts)
+课程和章节公开读取允许游客访问。评论发表要求有效登录会话、正确来源和 CSRF Token，正文长度 1 至 2000，必须有非空白字符，写入前去除首尾空白。额外请求字段被拒绝，调用方不能冒用 `authorId`。UUID、难度或请求体不合法返回 400。[API 校验](../../apps/api/features/courses/courses.ts) [请求保护](../../apps/api/app/app.ts)
 
 ## 章节评论流程
 
@@ -69,13 +69,13 @@
 5. 服务器在事务中锁定公开课程，再锁定该课程下的公开章节，成功后创建当前用户的评论。
 6. 前台写入确认后清空输入，更新评论缓存并刷新列表。失败保留原内容并显示反馈。
 
-评论查询键包含接口路径与当前用户。章节改变时请求新路径，上一章评论不会进入下一章。登录或退出触发私有缓存清理，组件输入状态按当前会话重建。[共享评论组件](../../apps/web/comments.tsx) [会话缓存](../../apps/web/session.tsx)
+评论查询键包含接口路径与当前用户。章节改变时请求新路径，上一章评论不会进入下一章。登录或退出触发私有缓存清理，组件输入状态按当前会话重建。[共享评论组件](../../apps/shared/ui/comments.tsx) [会话缓存](../../apps/shared/auth/session.tsx)
 
-当前章节评论保存单层结构。界面复用统一评论组件，但课程接口没有 `parentId`、点赞状态、评论隐藏状态或审核日志字段。课程讨论的能力以这些已实现接口为准。[章节评论模型](../../prisma/schema.prisma) [章节评论路由](../../apps/api/courses.ts)
+当前章节评论保存单层结构。界面复用统一评论组件，但课程接口没有 `parentId`、点赞状态、评论隐藏状态或审核日志字段。课程讨论的能力以这些已实现接口为准。[章节评论模型](../../prisma/schema.prisma) [章节评论路由](../../apps/api/features/courses/courses.ts)
 
 ## 并发与公开边界
 
-评论写入事务先取得课程行共享锁，再取得章节行共享锁。课程或章节下架与该写事务通过数据库行锁协调，避免检查通过后再写入已下架目标。正文和评论的 GET 都按发布状态和所属课程读取，传入另一课程的章节 ID 返回 404。[事务实现](../../apps/api/courses.ts)
+评论写入事务先取得课程行共享锁，再取得章节行共享锁。课程或章节下架与该写事务通过数据库行锁协调，避免检查通过后再写入已下架目标。正文和评论的 GET 都按发布状态和所属课程读取，传入另一课程的章节 ID 返回 404。[事务实现](../../apps/api/features/courses/courses.ts)
 
 已下架课程和草稿章节不进入分类计数、公开列表、课程目录、相关课程和章节内容。课程作者与评论作者均通过外键关联用户。评论的作者来自服务端会话，普通用户不能为别人建立评论关系。[公开读取测试](../../tests/courses.integration.test.ts) [章节评论测试](../../tests/course-comments.integration.test.ts)
 
